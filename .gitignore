@@ -1,0 +1,9 @@
+bin/
+obj/
+temp/
+artifacts/
+.wix/
+installer/*.generated.wxs
+*.user
+*.log
+.vs/

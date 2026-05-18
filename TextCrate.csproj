@@ -1,0 +1,41 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>assets\icon.ico</ApplicationIcon>
+    <AssemblyName>TextCrate</AssemblyName>
+    <RootNamespace>TextCrate</RootNamespace>
+    <Version>0.1.0</Version>
+    <AssemblyVersion>0.1.0.0</AssemblyVersion>
+    <FileVersion>0.1.0.0</FileVersion>
+    <Authors>GoblinRules; Ghost Kernel</Authors>
+    <Company>Ghost Kernel</Company>
+    <Product>TextCrate</Product>
+    <Description>Tray utility for typing clipboard text into remote consoles and copying screen text with OCR.</Description>
+    <Copyright>Copyright © 2026 GoblinRules / Ghost Kernel</Copyright>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="assets\icon.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="assets\icon.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="assets\favicon.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="tessdata\eng.traineddata" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="temp\**\*.cs" />
+    <EmbeddedResource Remove="temp\**\*" />
+    <None Remove="temp\**\*" />
+    <Content Remove="temp\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Tesseract" Version="5.2.0" />
+  </ItemGroup>
+
+</Project>
