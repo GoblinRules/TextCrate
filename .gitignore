@@ -1,5 +1,8 @@
 bin/
 obj/
+setup/Payload.zip
+setup/bin/
+setup/obj/
 temp/
 artifacts/
 .wix/

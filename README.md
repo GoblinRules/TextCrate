@@ -13,7 +13,7 @@ Website: [ghostkernel.cc](https://ghostkernel.cc)
 
 Release builds include three options:
 
-- `TextCrate-vX.Y.Z-win-x64-setup.exe` - standard EXE installer.
+- `TextCrate-vX.Y.Z-win-x64-setup.exe` - EXE installer with install location, startup, admin-launch, and launch-now options.
 - `TextCrate-vX.Y.Z-win-x64.msi` - MSI installer.
 - `TextCrate-vX.Y.Z-win-x64-portable.zip` - portable folder, no installer.
 
@@ -83,4 +83,4 @@ Artifacts are written to `artifacts/`.
 
 ## License
 
-Copyright © 2026 GoblinRules / Ghost Kernel.
+Copyright (c) 2026 GoblinRules / Ghost Kernel.

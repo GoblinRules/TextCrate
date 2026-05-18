@@ -9,9 +9,11 @@
     <ApplicationIcon>assets\icon.ico</ApplicationIcon>
     <AssemblyName>TextCrate</AssemblyName>
     <RootNamespace>TextCrate</RootNamespace>
-    <Version>0.1.0</Version>
-    <AssemblyVersion>0.1.0.0</AssemblyVersion>
-    <FileVersion>0.1.0.0</FileVersion>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Authors>GoblinRules; Ghost Kernel</Authors>
     <Company>Ghost Kernel</Company>
     <Product>TextCrate</Product>
@@ -29,9 +31,13 @@
 
   <ItemGroup>
     <Compile Remove="temp\**\*.cs" />
+    <Compile Remove="setup\**\*.cs" />
     <EmbeddedResource Remove="temp\**\*" />
+    <EmbeddedResource Remove="setup\**\*" />
     <None Remove="temp\**\*" />
+    <None Remove="setup\**\*" />
     <Content Remove="temp\**\*" />
+    <Content Remove="setup\**\*" />
   </ItemGroup>
 
   <ItemGroup>

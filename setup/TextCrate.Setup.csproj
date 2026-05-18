@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows10.0.19041.0</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationIcon>..\assets\icon.ico</ApplicationIcon>
+    <AssemblyName>TextCrate.Setup</AssemblyName>
+    <RootNamespace>TextCrate.Setup</RootNamespace>
+    <Version>1.0.0</Version>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <InformationalVersion>1.0.0</InformationalVersion>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Company>Ghost Kernel</Company>
+    <Product>TextCrate Setup</Product>
+    <Authors>GoblinRules; Ghost Kernel</Authors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="..\assets\icon.ico" Link="assets\icon.ico" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="Payload.zip" LogicalName="Payload.zip" />
+  </ItemGroup>
+</Project>

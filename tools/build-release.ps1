@@ -6,8 +6,10 @@ $ErrorActionPreference = "Stop"
 
 $root = Resolve-Path (Join-Path $PSScriptRoot "..")
 $project = Join-Path $root "TextCrate.csproj"
+$setupProject = Join-Path $root "setup\TextCrate.Setup.csproj"
 $artifacts = Join-Path $root "artifacts"
 $publish = Join-Path $artifacts "publish\TextCrate"
+$setupPublish = Join-Path $artifacts "publish\TextCrate.Setup"
 $installer = Join-Path $root "installer"
 
 [xml]$projectXml = Get-Content $project
@@ -19,13 +21,20 @@ if ([string]::IsNullOrWhiteSpace($version)) {
 $portableZip = Join-Path $artifacts "TextCrate-v$version-win-x64-portable.zip"
 $msiPath = Join-Path $artifacts "TextCrate-v$version-win-x64.msi"
 $exePath = Join-Path $artifacts "TextCrate-v$version-win-x64-setup.exe"
+$payloadZip = Join-Path $root "setup\Payload.zip"
+$assemblyVersion = "$version.0"
 
 Remove-Item -LiteralPath $artifacts -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $publish, $installer | Out-Null
 
 dotnet publish $project -c $Configuration -r win-x64 --self-contained true -p:PublishSingleFile=false -p:DebugType=none -p:DebugSymbols=false -o $publish
+Copy-Item -LiteralPath (Join-Path $root "README.md") -Destination (Join-Path $publish "README.md") -Force
 
 Compress-Archive -Path (Join-Path $publish "*") -DestinationPath $portableZip -Force
+Copy-Item -LiteralPath $portableZip -Destination $payloadZip -Force
+
+dotnet publish $setupProject -c $Configuration -r win-x64 --self-contained true -p:PublishSingleFile=true -p:DebugType=none -p:DebugSymbols=false -p:Version=$version -p:AssemblyVersion=$assemblyVersion -p:FileVersion=$assemblyVersion -p:InformationalVersion=$version -o $setupPublish
+Copy-Item -LiteralPath (Join-Path $setupPublish "TextCrate.Setup.exe") -Destination $exePath -Force
 
 function ConvertTo-WixId([string]$prefix, [string]$value) {
     $sanitized = [Regex]::Replace($value, "[^A-Za-z0-9_]", "_")
@@ -125,32 +134,6 @@ $componentXml    </ComponentGroup>
 
 wix build $productWxs -arch x64 -out $msiPath
 if ($LASTEXITCODE -ne 0) { throw "WiX MSI build failed." }
-
-$bundleWxs = Join-Path $installer "TextCrate.Bundle.generated.wxs"
-$bundleUpgradeCode = "3cb704e9-ce4e-4765-84a0-52250caee57b"
-$msiSource = Escape-Xml $msiPath
-
-@"
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
-     xmlns:bal="http://wixtoolset.org/schemas/v4/wxs/bal">
-  <Bundle Name="TextCrate" Manufacturer="Ghost Kernel" Version="$version" UpgradeCode="$bundleUpgradeCode" IconSourceFile="$iconPath">
-    <BootstrapperApplication>
-      <bal:WixStandardBootstrapperApplication LicenseUrl="" Theme="hyperlinkLicense" ShowVersion="yes" />
-    </BootstrapperApplication>
-    <Chain>
-      <MsiPackage SourceFile="$msiSource" />
-    </Chain>
-  </Bundle>
-</Wix>
-"@ | Set-Content -LiteralPath $bundleWxs -Encoding UTF8
-
-$balExtension = Join-Path $root ".wix\extensions\WixToolset.Bal.wixext\7.0.0\wixext7\WixToolset.BootstrapperApplications.wixext.dll"
-if (!(Test-Path $balExtension)) {
-    wix extension add WixToolset.Bal.wixext/7.0.0
-    if ($LASTEXITCODE -ne 0) { throw "Could not install WiX bootstrapper extension." }
-}
-wix build $bundleWxs -arch x64 -ext $balExtension -out $exePath
-if ($LASTEXITCODE -ne 0) { throw "WiX EXE bundle build failed." }
 
 Write-Host "Built:"
 Write-Host "  $portableZip"
