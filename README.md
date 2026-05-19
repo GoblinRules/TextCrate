@@ -26,7 +26,7 @@ The builds are unsigned. Windows may show an unknown-publisher warning until Tex
 - Choose **Read screen area to clipboard**, then drag a rectangle over text on screen.
 - Press `Esc` while choosing a target or OCR area to cancel.
 
-TextCrate uses bundled Tesseract English OCR first, then falls back to Windows OCR if needed. Enhanced OCR is enabled by default and runs extra internal passes for small UI text, table rows, colored status pills, times, ports, code, and `.env` style text without requiring mode changes.
+TextCrate uses bundled Tesseract `tessdata_best` English OCR first, then falls back to Windows OCR if needed. Enhanced OCR is enabled by default and runs extra internal passes for small UI text, table rows, colored status pills, times, ports, code, and `.env` style text without requiring mode changes.
 
 ## Settings
 

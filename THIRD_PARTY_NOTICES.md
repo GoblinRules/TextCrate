@@ -59,9 +59,9 @@ TextCrate uses the `Tesseract` NuGet package, a .NET wrapper for Tesseract OCR.
 
 ## Tesseract English Trained Data
 
-TextCrate bundles `tessdata/eng.traineddata` for English OCR.
+TextCrate bundles `tessdata/eng.traineddata` from `tessdata_best` for English OCR.
 
-- Project: https://github.com/tesseract-ocr/tessdata
+- Project: https://github.com/tesseract-ocr/tessdata_best
 - License: Apache License 2.0
 
 ## Apache License 2.0 Notice
