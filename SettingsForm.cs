@@ -151,7 +151,7 @@ internal sealed class SettingsForm : Form
         AddSectionTitle(page, "Paste", 0);
         AddInfo(page, "Left-click the tray icon to choose a target, or use the paste hotkey. TextCrate types the current clipboard into the target window.", 32, 560);
 
-        var table = CreateTable(page, 98, 5);
+        var table = CreateTable(page, 122, 5);
         _typingMethod.SetOptions(
             new SelectOption("SendInput scan codes", TypingMethod.SendInput),
             new SelectOption("SendKeys compatibility", TypingMethod.SendKeys),
@@ -175,7 +175,7 @@ internal sealed class SettingsForm : Form
         AddSectionTitle(page, "Screen Reading", 0);
         AddInfo(page, "Read screen area copies text from a rectangle you draw on screen. It is intended for remote VMs and dashboards where clipboard sharing is unavailable.", 32, 570);
 
-        var table = CreateTable(page, 100, 2);
+        var table = CreateTable(page, 122, 2);
         _ocrCleanup.SetOptions(
             new SelectOption("Plain text", OcrCleanupMode.PlainText),
             new SelectOption("Code and .env text", OcrCleanupMode.CodeAndEnvironmentText));
@@ -197,9 +197,9 @@ internal sealed class SettingsForm : Form
     {
         var page = CreatePage("Startup");
         AddSectionTitle(page, "Startup", 0);
-        AddInfo(page, "Startup options are stored per Windows user. Administrator launch will still show a UAC prompt because the app is unsigned.", 32, 560);
+        AddInfo(page, "Some administrator windows ignore input from normal apps. Running TextCrate as administrator lets it type into elevated tools when needed. For one-off use, right-click the tray icon and choose Relaunch as administrator instead of enabling admin startup. Startup options are stored per Windows user; administrator launch will still show a UAC prompt because the app is unsigned.", 32, 590);
 
-        var table = CreateTable(page, 96, 2);
+        var table = CreateTable(page, 154, 2);
         _startWithWindows.Text = "Start with Windows";
         _startAsAdmin.Text = "Start as administrator when launching";
         StyleCheckBox(_startWithWindows);
@@ -216,7 +216,7 @@ internal sealed class SettingsForm : Form
         AddSectionTitle(page, "Hotkeys", 0);
         AddInfo(page, "Hotkeys are registered with Windows. If another app already owns a shortcut, TextCrate will warn when you save.", 32, 560);
 
-        var table = CreateTable(page, 92, 8);
+        var table = CreateTable(page, 122, 8);
         AddHotKeyRows(table, 0, "Paste", _pasteHotKey);
 
         _hotKeyMode.SetOptions(
@@ -238,6 +238,11 @@ internal sealed class SettingsForm : Form
 
         AddSubheading(page, "Troubleshooting", 254);
         AddInfo(page, "If text types into the wrong place, use target mode and click directly inside the destination input area.\nIf characters are missed, increase the delay between keys.\nIf OCR misses text, draw a tighter rectangle and keep enhanced OCR enabled.", 282, 570);
+
+        var openLog = CreateButton("Open Log", false);
+        openLog.Location = new Point(0, 348);
+        openLog.Click += (_, _) => OpenLogFile();
+        page.Controls.Add(openLog);
     }
 
     private Panel CreatePage(string name)
@@ -245,7 +250,7 @@ internal sealed class SettingsForm : Form
         var page = new Panel
         {
             Location = new Point(24, 146),
-            Size = new Size(632, 382),
+            Size = new Size(632, 392),
             BackColor = Color.Transparent,
             Visible = false
         };
@@ -304,7 +309,7 @@ internal sealed class SettingsForm : Form
             Text = text,
             AutoSize = false,
             Location = new Point(0, y),
-            Size = new Size(width, 74)
+            Size = new Size(width, 86)
         });
     }
 
@@ -316,7 +321,14 @@ internal sealed class SettingsForm : Form
             AutoSize = true,
             Anchor = AnchorStyles.Left
         }, 0, row);
-        control.Dock = DockStyle.Fill;
+        control.Dock = DockStyle.None;
+        control.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+        control.Margin = new Padding(0, 3, 0, 3);
+        control.Width = 372;
+        if (control is ThemedSelect)
+        {
+            control.Height = 28;
+        }
         table.Controls.Add(control, 1, row);
     }
 
@@ -352,6 +364,23 @@ internal sealed class SettingsForm : Form
             page.Visible = pageName == name;
         }
         ApplyTheme();
+    }
+
+    private void OpenLogFile()
+    {
+        try
+        {
+            Logger.EnsureLogFile();
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = Logger.LogPath,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "TextCrate Log", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
     }
 
     private void LoadSettings()

@@ -7,7 +7,7 @@ internal static class Logger
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "TextCrate");
 
-    private static readonly string LogPath = Path.Combine(LogDirectory, "TextCrate.log");
+    public static readonly string LogPath = Path.Combine(LogDirectory, "TextCrate.log");
 
     public static void Info(string message)
     {
@@ -17,6 +17,15 @@ internal static class Logger
     public static void Error(string message, Exception exception)
     {
         Write("ERROR", $"{message} {exception.GetType().Name}: {exception.Message}");
+    }
+
+    public static void EnsureLogFile()
+    {
+        Directory.CreateDirectory(LogDirectory);
+        if (!File.Exists(LogPath))
+        {
+            File.WriteAllText(LogPath, string.Empty);
+        }
     }
 
     private static void Write(string level, string message)
