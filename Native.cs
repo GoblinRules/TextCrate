@@ -54,6 +54,18 @@ internal static class Native
     [DllImport("user32.dll")]
     public static extern IntPtr WindowFromPoint(Point point);
 
+    [DllImport("user32.dll")]
+    private static extern bool SetSystemCursor(IntPtr cursor, uint id);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr LoadCursor(IntPtr instance, int cursorName);
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr CopyIcon(IntPtr cursor);
+
+    [DllImport("user32.dll", CharSet = CharSet.Auto)]
+    private static extern int SystemParametersInfo(uint action, uint param, string? value, uint flags);
+
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     private static extern int GetWindowText(IntPtr windowHandle, StringBuilder text, int maxCount);
 
@@ -65,6 +77,12 @@ internal static class Native
 
     [DllImport("user32.dll")]
     private static extern short GetKeyState(int virtualKey);
+
+    private const uint SpiSetCursors = 0x0057;
+    private const uint NormalCursor = 32512;
+    private const uint IBeamCursor = 32513;
+    private const uint HandCursor = 32649;
+    private const int CrossCursor = 32515;
 
     public static void SetProcessDpiAware()
     {
@@ -84,6 +102,37 @@ internal static class Native
         var builder = new StringBuilder(length + 1);
         GetWindowText(windowHandle, builder, builder.Capacity);
         return builder.ToString();
+    }
+
+    public static void SetCrosshairCursor()
+    {
+        try
+        {
+            foreach (var cursorId in new[] { NormalCursor, IBeamCursor, HandCursor })
+            {
+                var cursor = CopyIcon(LoadCursor(IntPtr.Zero, CrossCursor));
+                if (cursor != IntPtr.Zero)
+                {
+                    SetSystemCursor(cursor, cursorId);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Could not set crosshair cursor.", ex);
+        }
+    }
+
+    public static void RestoreSystemCursors()
+    {
+        try
+        {
+            SystemParametersInfo(SpiSetCursors, 0, null, 0);
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Could not restore system cursors.", ex);
+        }
     }
 
     public static bool IsModifierKeyPressed()

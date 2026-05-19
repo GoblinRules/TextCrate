@@ -80,24 +80,35 @@ internal sealed class TrayApplicationContext : ApplicationContext
             return;
         }
 
-        if (!ConfirmTyping(text))
-        {
-            return;
-        }
-
         using var targetPicker = new TargetPickerForm();
         if (targetPicker.ShowDialog() != DialogResult.OK || targetPicker.TargetPoint is not { } point)
         {
             return;
         }
 
-        var target = Native.WindowFromPoint(point);
+        Thread.Sleep(120);
+        var target = Native.GetForegroundWindow();
+        if (target == IntPtr.Zero)
+        {
+            target = Native.WindowFromPoint(point);
+        }
+
         if (target == IntPtr.Zero)
         {
             SystemSounds.Beep.Play();
+            Logger.Info("Target paste cancelled because no target window was found.");
             return;
         }
 
+        var targetTitle = Native.GetWindowTitle(target);
+        if (!ConfirmTyping(text, targetTitle))
+        {
+            Native.SetForegroundWindow(target);
+            Logger.Info($"Typing declined for target '{targetTitle}' with {text.Length} characters.");
+            return;
+        }
+
+        Logger.Info($"Typing {text.Length} characters into target '{targetTitle}'.");
         Native.SetForegroundWindow(target);
         StartTypingThread(text);
     }
@@ -115,7 +126,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             return;
         }
 
-        if (!ConfirmTyping(text))
+        if (!ConfirmTyping(text, Native.GetWindowTitle(Native.GetForegroundWindow())))
         {
             return;
         }
@@ -141,6 +152,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         catch
         {
             SystemSounds.Beep.Play();
+            Logger.Info("Could not read text from clipboard.");
             return false;
         }
 
@@ -150,6 +162,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
 
         SystemSounds.Beep.Play();
+        Logger.Info("Clipboard did not contain text.");
         return false;
     }
 
@@ -165,10 +178,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             Thread.Sleep(_settings.StartDelayMs);
             Native.SendText(text, _settings.KeyDelayMs, _settings.TypingMethod, cancellation.Token);
+            Logger.Info($"Typed {text.Length} characters.");
         }
-        catch
+        catch (Exception ex)
         {
             SystemSounds.Beep.Play();
+            Logger.Error("Typing failed.", ex);
         }
         finally
         {
@@ -202,10 +217,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
             if (string.IsNullOrWhiteSpace(text))
             {
                 SystemSounds.Beep.Play();
+                Logger.Info("OCR returned no text.");
                 return;
             }
 
             Clipboard.SetText(text.Trim());
+            Logger.Info($"OCR copied {text.Trim().Length} characters.");
             if (_settings.ShowNotifications)
             {
                 StopActivityIndicator();
@@ -214,6 +231,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         catch (Exception ex)
         {
+            Logger.Error("OCR failed.", ex);
             MessageBox.Show(ex.Message, "TextCrate OCR", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         finally
@@ -255,18 +273,15 @@ internal sealed class TrayApplicationContext : ApplicationContext
         MessageBox.Show(error, "TextCrate Hotkey", MessageBoxButtons.OK, MessageBoxIcon.Warning);
     }
 
-    private bool ConfirmTyping(string text)
+    private bool ConfirmTyping(string text, string targetTitle)
     {
         if (!_settings.ConfirmLargePaste || text.Length <= _settings.ConfirmLargePasteOver)
         {
             return true;
         }
 
-        return MessageBox.Show(
-            $"Type {text.Length:N0} characters into the selected target?",
-            "TextCrate Confirm Typing",
-            MessageBoxButtons.YesNo,
-            MessageBoxIcon.Warning) == DialogResult.Yes;
+        using var form = new ThemedConfirmForm(_settings, text.Length, targetTitle);
+        return form.ShowDialog() == DialogResult.Yes;
     }
 
     private void RelaunchAsAdministrator()

@@ -5,6 +5,17 @@ static class Program
     [STAThread]
     static void Main()
     {
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => Native.RestoreSystemCursors();
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            Native.RestoreSystemCursors();
+            if (e.ExceptionObject is Exception ex)
+            {
+                Logger.Error("Unhandled exception.", ex);
+            }
+        };
+
+        Logger.Info("TextCrate starting.");
         var settings = AppSettings.Load();
         if (settings.StartAsAdmin && !ElevationService.IsAdministrator())
         {
