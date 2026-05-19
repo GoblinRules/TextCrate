@@ -9,10 +9,10 @@
     <ApplicationIcon>assets\icon.ico</ApplicationIcon>
     <AssemblyName>TextCrate</AssemblyName>
     <RootNamespace>TextCrate</RootNamespace>
-    <Version>1.0.5</Version>
-    <AssemblyVersion>1.0.5.0</AssemblyVersion>
-    <FileVersion>1.0.5.0</FileVersion>
-    <InformationalVersion>1.0.5</InformationalVersion>
+    <Version>1.0.6</Version>
+    <AssemblyVersion>1.0.6.0</AssemblyVersion>
+    <FileVersion>1.0.6.0</FileVersion>
+    <InformationalVersion>1.0.6</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Authors>Goblin Rules</Authors>
     <Company>Goblin Rules</Company>

@@ -58,26 +58,34 @@ internal static class OcrService
         engine.SetVariable("user_defined_dpi", "300");
 
         var candidates = new List<OcrCandidate>();
-        var whitelist = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-=:/.,+@#$%()[]{}<>|\\'\" ";
+        var whitelist = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-=:/.,+@#$%!?~()[]{}<>|\\'\" ";
         engine.SetVariable("tessedit_char_whitelist", whitelist);
 
         candidates.Add(RecognizeTesseractVariant(engine, bitmap, PageSegMode.SparseText, "tess-original-sparse"));
         candidates.Add(RecognizeTesseractVariant(engine, bitmap, PageSegMode.Auto, "tess-original-auto"));
+        candidates.Add(RecognizeTesseractVariant(engine, bitmap, PageSegMode.SingleLine, "tess-original-line"));
+        candidates.Add(RecognizeTesseractVariant(engine, bitmap, PageSegMode.SingleWord, "tess-original-word"));
 
         if (enhanced)
         {
             using var originalScaled = Scale(bitmap, 3);
             candidates.Add(RecognizeTesseractVariant(engine, originalScaled, PageSegMode.SparseText, "tess-original-scaled-sparse"));
             candidates.Add(RecognizeTesseractVariant(engine, originalScaled, PageSegMode.SingleBlock, "tess-original-scaled-block"));
+            candidates.Add(RecognizeTesseractVariant(engine, originalScaled, PageSegMode.SingleLine, "tess-original-scaled-line"));
+            candidates.Add(RecognizeTesseractVariant(engine, originalScaled, PageSegMode.SingleWord, "tess-original-scaled-word"));
 
             using var originalSmoothScaled = ScaleSmooth(bitmap, 3);
             candidates.Add(RecognizeTesseractVariant(engine, originalSmoothScaled, PageSegMode.Auto, "tess-original-smooth-scaled-auto"));
             candidates.Add(RecognizeTesseractVariant(engine, originalSmoothScaled, PageSegMode.SingleBlock, "tess-original-smooth-scaled-block"));
+            candidates.Add(RecognizeTesseractVariant(engine, originalSmoothScaled, PageSegMode.SingleLine, "tess-original-smooth-scaled-line"));
+            candidates.Add(RecognizeTesseractVariant(engine, originalSmoothScaled, PageSegMode.SingleWord, "tess-original-smooth-scaled-word"));
 
             using var darkUi = BuildDarkUiTextVariant(bitmap);
             using var darkUiScaled = Scale(darkUi, 4);
             candidates.Add(RecognizeTesseractVariant(engine, darkUiScaled, PageSegMode.SparseText, "tess-dark-ui-scaled-sparse"));
             candidates.Add(RecognizeTesseractVariant(engine, darkUiScaled, PageSegMode.SingleBlock, "tess-dark-ui-scaled-block"));
+            candidates.Add(RecognizeTesseractVariant(engine, darkUiScaled, PageSegMode.SingleLine, "tess-dark-ui-scaled-line"));
+            candidates.Add(RecognizeTesseractVariant(engine, darkUiScaled, PageSegMode.SingleWord, "tess-dark-ui-scaled-word"));
 
             using var processed = BuildHighContrastVariant(bitmap);
             candidates.Add(RecognizeTesseractVariant(engine, processed, PageSegMode.SparseText, "tess-contrast-sparse"));
@@ -85,6 +93,8 @@ internal static class OcrService
             using var processedScaled = Scale(processed, 3);
             candidates.Add(RecognizeTesseractVariant(engine, processedScaled, PageSegMode.SparseText, "tess-contrast-scaled-sparse"));
             candidates.Add(RecognizeTesseractVariant(engine, processedScaled, PageSegMode.SingleBlock, "tess-contrast-scaled-block"));
+            candidates.Add(RecognizeTesseractVariant(engine, processedScaled, PageSegMode.SingleLine, "tess-contrast-scaled-line"));
+            candidates.Add(RecognizeTesseractVariant(engine, processedScaled, PageSegMode.SingleWord, "tess-contrast-scaled-word"));
 
             using var processedSmoothScaled = ScaleSmooth(processed, 3);
             candidates.Add(RecognizeTesseractVariant(engine, processedSmoothScaled, PageSegMode.SingleBlock, "tess-contrast-smooth-scaled-block"));
@@ -391,8 +401,9 @@ internal static class OcrService
         double score = candidate.Confidence * 4;
         score += words.Count(word => word.Length >= 4) * 8;
         score += Math.Min(90, characters * 1.4);
-        score += text.Count(ch => ch is '_' or '=' or ':' or '/' or '-' or '.') * 3;
+        score += text.Count(ch => ch is '_' or '=' or ':' or '/' or '-' or '.' or '?' or '!' or '~') * 3;
         score += statusCount * 25;
+        score += Regex.Matches(text, @"\b(?=\S*[a-z])(?=\S*[A-Z])(?=\S*\d)[A-Za-z0-9?!=@#$%_./:~+-]{8,}\b").Count * 35;
         score += Regex.Matches(text, @"\b\d{4}-\d{2}-\d{2}\b").Count * 20;
         score += Regex.Matches(text, @"\b\d{1,5}:\d{1,5}(?::\d{2})?\b").Count * 20;
 
