@@ -6,10 +6,10 @@ internal sealed class HotKeyManager : NativeWindow, IDisposable
 {
     private const int WmHotKey = 0x0312;
     private const int NoRepeat = 0x4000;
-    private int? _registeredId;
+    private readonly Dictionary<int, HotKeyAction> _registeredIds = [];
     private int _nextId;
 
-    public event EventHandler? HotKeyPressed;
+    public event EventHandler<HotKeyPressedEventArgs>? HotKeyPressed;
 
     public HotKeyManager()
     {
@@ -21,45 +21,75 @@ internal sealed class HotKeyManager : NativeWindow, IDisposable
         Unregister();
         error = null;
 
-        if (!settings.HotKeyEnabled || string.IsNullOrWhiteSpace(settings.HotKey))
+        if (!TryRegister(
+                settings.HotKeyEnabled,
+                settings.HotKey,
+                settings.HotKeyModifiers,
+                HotKeyAction.Paste,
+                out error))
+        {
+            return false;
+        }
+
+        if (!TryRegister(
+                settings.ReadHotKeyEnabled,
+                settings.ReadHotKey,
+                settings.ReadHotKeyModifiers,
+                HotKeyAction.ReadScreenArea,
+                out error))
+        {
+            Unregister();
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool TryRegister(bool enabled, string keyName, HotKeyModifiers hotKeyModifiers, HotKeyAction action, out string? error)
+    {
+        error = null;
+        if (!enabled || string.IsNullOrWhiteSpace(keyName))
         {
             return true;
         }
 
-        if (!Enum.TryParse(settings.HotKey, out Keys key) || IsModifierOnly(key))
+        if (!Enum.TryParse(keyName, out Keys key) || IsModifierOnly(key))
         {
-            error = "Choose a normal key for the hotkey.";
+            error = $"Choose a normal key for the {FormatAction(action)} hotkey.";
             return false;
         }
 
         var id = ++_nextId;
-        var modifiers = (uint)settings.HotKeyModifiers | NoRepeat;
+        var modifiers = (uint)hotKeyModifiers | NoRepeat;
         if (!RegisterHotKey(Handle, id, modifiers, (uint)key))
         {
-            error = $"Could not register {Format(settings)}. It may already be used by Windows or another app.";
+            error = $"Could not register {Format(keyName, hotKeyModifiers)} for {FormatAction(action)}. It may already be used by Windows or another app.";
             return false;
         }
 
-        _registeredId = id;
+        _registeredIds[id] = action;
         return true;
     }
 
     public void Unregister()
     {
-        if (_registeredId is not { } id)
+        foreach (var id in _registeredIds.Keys)
         {
-            return;
+            UnregisterHotKey(Handle, id);
         }
 
-        UnregisterHotKey(Handle, id);
-        _registeredId = null;
+        _registeredIds.Clear();
     }
 
     protected override void WndProc(ref Message m)
     {
         if (m.Msg == WmHotKey)
         {
-            HotKeyPressed?.Invoke(this, EventArgs.Empty);
+            var id = m.WParam.ToInt32();
+            if (_registeredIds.TryGetValue(id, out var action))
+            {
+                HotKeyPressed?.Invoke(this, new HotKeyPressedEventArgs(action));
+            }
         }
 
         base.WndProc(ref m);
@@ -67,13 +97,23 @@ internal sealed class HotKeyManager : NativeWindow, IDisposable
 
     public static string Format(AppSettings settings)
     {
+        return Format(settings.HotKey, settings.HotKeyModifiers);
+    }
+
+    public static string Format(string keyName, HotKeyModifiers modifiers)
+    {
         var parts = new List<string>();
-        if (settings.HotKeyModifiers.HasFlag(HotKeyModifiers.Control)) parts.Add("Ctrl");
-        if (settings.HotKeyModifiers.HasFlag(HotKeyModifiers.Alt)) parts.Add("Alt");
-        if (settings.HotKeyModifiers.HasFlag(HotKeyModifiers.Shift)) parts.Add("Shift");
-        if (settings.HotKeyModifiers.HasFlag(HotKeyModifiers.Windows)) parts.Add("Win");
-        if (!string.IsNullOrWhiteSpace(settings.HotKey)) parts.Add(settings.HotKey);
+        if (modifiers.HasFlag(HotKeyModifiers.Control)) parts.Add("Ctrl");
+        if (modifiers.HasFlag(HotKeyModifiers.Alt)) parts.Add("Alt");
+        if (modifiers.HasFlag(HotKeyModifiers.Shift)) parts.Add("Shift");
+        if (modifiers.HasFlag(HotKeyModifiers.Windows)) parts.Add("Win");
+        if (!string.IsNullOrWhiteSpace(keyName)) parts.Add(keyName);
         return string.Join("+", parts);
+    }
+
+    private static string FormatAction(HotKeyAction action)
+    {
+        return action == HotKeyAction.ReadScreenArea ? "read screen area" : "paste";
     }
 
     private static bool IsModifierOnly(Keys key)
@@ -95,4 +135,9 @@ internal sealed class HotKeyManager : NativeWindow, IDisposable
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern bool UnregisterHotKey(IntPtr hWnd, int id);
+}
+
+internal sealed class HotKeyPressedEventArgs(HotKeyAction action) : EventArgs
+{
+    public HotKeyAction Action { get; } = action;
 }

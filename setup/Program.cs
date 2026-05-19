@@ -277,7 +277,10 @@ internal sealed class SetupForm : Form
             HotKeyEnabled = true,
             HotKey = "V",
             HotKeyModifiers = 3,
-            HotKeyMode = 0
+            HotKeyMode = 0,
+            ReadHotKeyEnabled = false,
+            ReadHotKey = "R",
+            ReadHotKeyModifiers = 3
         };
         File.WriteAllText(settingsPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
 

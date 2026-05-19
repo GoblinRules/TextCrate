@@ -28,6 +28,12 @@ internal enum HotKeyMode
     JustStartTyping = 1
 }
 
+internal enum HotKeyAction
+{
+    Paste = 0,
+    ReadScreenArea = 1
+}
+
 [Flags]
 internal enum HotKeyModifiers
 {
@@ -61,6 +67,9 @@ internal sealed class AppSettings
     public string HotKey { get; set; } = "V";
     public HotKeyModifiers HotKeyModifiers { get; set; } = HotKeyModifiers.Alt | HotKeyModifiers.Control;
     public HotKeyMode HotKeyMode { get; set; } = HotKeyMode.TargetMode;
+    public bool ReadHotKeyEnabled { get; set; }
+    public string ReadHotKey { get; set; } = "R";
+    public HotKeyModifiers ReadHotKeyModifiers { get; set; } = HotKeyModifiers.Alt | HotKeyModifiers.Control;
 
     public static AppSettings Load()
     {

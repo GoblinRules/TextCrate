@@ -15,12 +15,8 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox _confirmLargePaste = new();
     private readonly TextBox _confirmOver = new();
     private readonly CheckBox _enhancedOcr = new();
-    private readonly CheckBox _hotKeyEnabled = new();
-    private readonly TextBox _hotKey = new();
-    private readonly CheckBox _hotKeyAlt = new();
-    private readonly CheckBox _hotKeyControl = new();
-    private readonly CheckBox _hotKeyShift = new();
-    private readonly CheckBox _hotKeyWindows = new();
+    private readonly HotKeyControls _pasteHotKey = new("Enable paste hotkey");
+    private readonly HotKeyControls _readHotKey = new("Enable read screen hotkey");
     private readonly ToolTip _toolTip = new();
 
     public SettingsForm(AppSettings settings)
@@ -32,7 +28,7 @@ internal sealed class SettingsForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(600, 700);
+        ClientSize = new Size(660, 790);
         Font = new Font("Segoe UI", 9F);
 
         BuildLayout();
@@ -42,130 +38,112 @@ internal sealed class SettingsForm : Form
 
     private void BuildLayout()
     {
-        var header = new Label
+        Controls.Add(new Label
         {
             Text = "Settings",
             Font = new Font("Segoe UI Semibold", 16F),
-            ForeColor = Color.FromArgb(15, 23, 42),
             AutoSize = true,
             Location = new Point(24, 22)
-        };
+        });
 
-        var subtitle = new Label
+        Controls.Add(new Label
         {
-            Text = "Configure how TextCrate types into remote windows and reads selected screen areas.",
-            ForeColor = Color.FromArgb(71, 85, 105),
+            Text = "Configure typing, OCR, startup behavior, notifications, and shortcuts.",
             AutoSize = false,
             Location = new Point(24, 56),
-            Size = new Size(535, 36)
-        };
+            Size = new Size(590, 28)
+        });
 
-        var table = new TableLayoutPanel
+        var content = new Panel
         {
-            Location = new Point(24, 108),
-            Size = new Size(552, 500),
-            ColumnCount = 2,
-            RowCount = 15,
+            Location = new Point(24, 96),
+            Size = new Size(612, 610),
+            AutoScroll = true,
             BackColor = Color.Transparent
         };
-        table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
-        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        for (var i = 0; i < 15; i++)
-        {
-            table.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-        }
 
-        _theme.SetOptions(
-            new SelectOption("Use system theme", AppTheme.System),
-            new SelectOption("Light", AppTheme.Light),
-            new SelectOption("Dark", AppTheme.Dark));
-        _theme.SelectedValueChanged += (_, _) =>
+        var y = 0;
+        y = AddSection(content, y, "General", 2, table =>
         {
-            if (_theme.SelectedValue is AppTheme theme)
+            _theme.SetOptions(
+                new SelectOption("Use system theme", AppTheme.System),
+                new SelectOption("Light", AppTheme.Light),
+                new SelectOption("Dark", AppTheme.Dark));
+            _theme.SelectedValueChanged += (_, _) =>
             {
-                _settings.Theme = theme;
-                ApplyTheme();
+                if (_theme.SelectedValue is AppTheme theme)
+                {
+                    _settings.Theme = theme;
+                    ApplyTheme();
+                }
+            };
+            AddRow(table, 0, "Theme", _theme);
+
+            _notifications.Text = "Show completion notifications";
+            StyleCheckBox(_notifications);
+            table.Controls.Add(_notifications, 0, 1);
+            table.SetColumnSpan(_notifications, 2);
+        });
+
+        y = AddSection(content, y, "Paste", 5, table =>
+        {
+            _typingMethod.SetOptions(
+                new SelectOption("SendInput scan codes", TypingMethod.SendInput),
+                new SelectOption("SendKeys compatibility", TypingMethod.SendKeys),
+                new SelectOption("Clipboard paste (Ctrl+V)", TypingMethod.ClipboardPaste));
+            AddRow(table, 0, "Typing method", _typingMethod);
+            AddRow(table, 1, "Delay between keys (ms)", _keyDelay);
+            AddRow(table, 2, "Start delay (ms)", _startDelay);
+
+            _confirmLargePaste.Text = "Confirm large paste operations";
+            StyleCheckBox(_confirmLargePaste);
+            table.Controls.Add(_confirmLargePaste, 0, 3);
+            table.SetColumnSpan(_confirmLargePaste, 2);
+
+            AddRow(table, 4, "Confirm over characters", _confirmOver);
+        });
+
+        y = AddSection(content, y, "Screen Reading", 2, table =>
+        {
+            _ocrCleanup.SetOptions(
+                new SelectOption("Plain text", OcrCleanupMode.PlainText),
+                new SelectOption("Code and .env text", OcrCleanupMode.CodeAndEnvironmentText));
+            AddRow(table, 0, "OCR cleanup", _ocrCleanup);
+
+            _enhancedOcr.Text = "Enhanced OCR";
+            StyleCheckBox(_enhancedOcr);
+            table.Controls.Add(_enhancedOcr, 0, 1);
+            table.SetColumnSpan(_enhancedOcr, 2);
+        });
+
+        y = AddSection(content, y, "Startup", 2, table =>
+        {
+            _startWithWindows.Text = "Start with Windows";
+            _startAsAdmin.Text = "Start as administrator when launching";
+            foreach (var checkBox in new[] { _startWithWindows, _startAsAdmin })
+            {
+                StyleCheckBox(checkBox);
+                table.Controls.Add(checkBox, 0, table.Controls.Count);
+                table.SetColumnSpan(checkBox, 2);
             }
-        };
-        AddRow(table, 0, "Theme", _theme);
+        });
 
-        _typingMethod.SetOptions(
-            new SelectOption("SendInput scan codes", TypingMethod.SendInput),
-            new SelectOption("SendKeys compatibility", TypingMethod.SendKeys),
-            new SelectOption("Clipboard paste (Ctrl+V)", TypingMethod.ClipboardPaste));
-        AddRow(table, 1, "Typing method", _typingMethod);
-
-        AddRow(table, 2, "Delay between keys (ms)", _keyDelay);
-
-        AddRow(table, 3, "Start delay (ms)", _startDelay);
-
-        _ocrCleanup.SetOptions(
-            new SelectOption("Plain text", OcrCleanupMode.PlainText),
-            new SelectOption("Code and .env text", OcrCleanupMode.CodeAndEnvironmentText));
-        AddRow(table, 4, "OCR cleanup", _ocrCleanup);
-
-        _enhancedOcr.Text = "Enhanced OCR";
-        StyleCheckBox(_enhancedOcr);
-        table.Controls.Add(_enhancedOcr, 0, 5);
-        table.SetColumnSpan(_enhancedOcr, 2);
-
-        _notifications.Text = "Show completion notifications";
-        StyleCheckBox(_notifications);
-        table.Controls.Add(_notifications, 0, 6);
-        table.SetColumnSpan(_notifications, 2);
-
-        _startWithWindows.Text = "Start with Windows";
-        StyleCheckBox(_startWithWindows);
-        table.Controls.Add(_startWithWindows, 0, 7);
-        table.SetColumnSpan(_startWithWindows, 2);
-
-        _startAsAdmin.Text = "Start as administrator when launching";
-        StyleCheckBox(_startAsAdmin);
-        table.Controls.Add(_startAsAdmin, 0, 8);
-        table.SetColumnSpan(_startAsAdmin, 2);
-
-        _confirmLargePaste.Text = "Confirm large paste operations";
-        StyleCheckBox(_confirmLargePaste);
-        table.Controls.Add(_confirmLargePaste, 0, 9);
-        table.SetColumnSpan(_confirmLargePaste, 2);
-
-        AddRow(table, 10, "Confirm over characters", _confirmOver);
-
-        _hotKeyEnabled.Text = "Enable paste hotkey";
-        StyleCheckBox(_hotKeyEnabled);
-        table.Controls.Add(_hotKeyEnabled, 0, 11);
-        table.SetColumnSpan(_hotKeyEnabled, 2);
-
-        _hotKey.KeyDown += HotKeyOnKeyDown;
-        AddRow(table, 12, "Hotkey key", _hotKey);
-
-        var modifiers = new FlowLayoutPanel
+        AddSection(content, y, "Hotkeys", 8, table =>
         {
-            Dock = DockStyle.Fill,
-            FlowDirection = FlowDirection.LeftToRight,
-            WrapContents = false
-        };
-        _hotKeyControl.Text = "Ctrl";
-        _hotKeyAlt.Text = "Alt";
-        _hotKeyShift.Text = "Shift";
-        _hotKeyWindows.Text = "Win";
-        foreach (var checkBox in new[] { _hotKeyControl, _hotKeyAlt, _hotKeyShift, _hotKeyWindows })
-        {
-            StyleCheckBox(checkBox);
-            checkBox.Margin = new Padding(0, 4, 14, 0);
-            modifiers.Controls.Add(checkBox);
-        }
-        AddRow(table, 13, "Hotkey modifiers", modifiers);
+            AddHotKeyRows(table, 0, "Paste", _pasteHotKey);
 
-        _hotKeyMode.SetOptions(
-            new SelectOption("Choose target window", HotKeyMode.TargetMode),
-            new SelectOption("Type into active window", HotKeyMode.JustStartTyping));
-        AddRow(table, 14, "Hotkey action", _hotKeyMode);
+            _hotKeyMode.SetOptions(
+                new SelectOption("Choose target window", HotKeyMode.TargetMode),
+                new SelectOption("Type into active window", HotKeyMode.JustStartTyping));
+            AddRow(table, 3, "Paste action", _hotKeyMode);
+
+            AddHotKeyRows(table, 4, "Read screen", _readHotKey);
+        });
 
         var buttons = new FlowLayoutPanel
         {
-            Location = new Point(24, 632),
-            Size = new Size(552, 42),
+            Location = new Point(24, 724),
+            Size = new Size(612, 42),
             FlowDirection = FlowDirection.RightToLeft,
             BackColor = Color.Transparent
         };
@@ -177,21 +155,51 @@ internal sealed class SettingsForm : Form
 
         AcceptButton = ok;
         CancelButton = cancel;
-        Controls.Add(header);
-        Controls.Add(subtitle);
-        Controls.Add(table);
+        Controls.Add(content);
         Controls.Add(buttons);
 
         _toolTip.SetToolTip(_typingMethod, "SendInput is best for VM consoles. SendKeys is a fallback. Clipboard paste uses Ctrl+V when the target supports it.");
         _toolTip.SetToolTip(_theme, "Controls the settings window and tray menu appearance.");
-        _toolTip.SetToolTip(_keyDelay, "Adds a small pause between typed characters for slow remote consoles.");
+        _toolTip.SetToolTip(_keyDelay, "Use 0 or 1 ms for fast batched typing. Use 2 ms or higher if a remote console drops characters.");
         _toolTip.SetToolTip(_startDelay, "Waits after selecting the target before typing begins.");
         _toolTip.SetToolTip(_ocrCleanup, "Code mode repairs common OCR spacing in environment variables such as DATABASE_URL.");
-        _toolTip.SetToolTip(_enhancedOcr, "Runs extra internal OCR passes for small UI text, table columns, colored status pills, times, and ports.");
+        _toolTip.SetToolTip(_enhancedOcr, "Runs extra OCR passes for small UI text, table columns, colored status pills, times, and ports.");
         _toolTip.SetToolTip(_startAsAdmin, "Relaunches with UAC elevation when TextCrate starts. Useful for typing into administrator windows.");
         _toolTip.SetToolTip(_confirmOver, "TextCrate asks before typing clipboard text longer than this limit.");
-        _toolTip.SetToolTip(_hotKey, "Press a key here. Backspace clears the hotkey.");
-        _toolTip.SetToolTip(_hotKeyMode, "Choose whether the hotkey asks for a target first or types into the active window.");
+        _toolTip.SetToolTip(_pasteHotKey.Key, "Press a key here. Backspace clears the hotkey.");
+        _toolTip.SetToolTip(_readHotKey.Key, "Press a key here. Backspace clears the hotkey.");
+        _toolTip.SetToolTip(_hotKeyMode, "Choose whether the paste hotkey asks for a target first or types into the active window.");
+    }
+
+    private int AddSection(Panel parent, int y, string title, int rowCount, Action<TableLayoutPanel> build)
+    {
+        var label = new Label
+        {
+            Text = title,
+            Font = new Font("Segoe UI Semibold", 11F),
+            AutoSize = true,
+            Location = new Point(0, y)
+        };
+        parent.Controls.Add(label);
+
+        var table = new TableLayoutPanel
+        {
+            Location = new Point(0, y + 30),
+            Size = new Size(588, rowCount * 32),
+            ColumnCount = 2,
+            RowCount = rowCount,
+            BackColor = Color.Transparent
+        };
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 220));
+        table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        for (var i = 0; i < rowCount; i++)
+        {
+            table.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+        }
+
+        build(table);
+        parent.Controls.Add(table);
+        return table.Bottom + 22;
     }
 
     private static void AddRow(TableLayoutPanel table, int row, string label, Control control)
@@ -200,11 +208,34 @@ internal sealed class SettingsForm : Form
         {
             Text = label,
             AutoSize = true,
-            Anchor = AnchorStyles.Left,
-            ForeColor = Color.FromArgb(30, 41, 59)
+            Anchor = AnchorStyles.Left
         }, 0, row);
         control.Dock = DockStyle.Fill;
         table.Controls.Add(control, 1, row);
+    }
+
+    private void AddHotKeyRows(TableLayoutPanel table, int startRow, string label, HotKeyControls controls)
+    {
+        StyleCheckBox(controls.Enabled);
+        table.Controls.Add(controls.Enabled, 0, startRow);
+        table.SetColumnSpan(controls.Enabled, 2);
+
+        controls.Key.KeyDown += HotKeyOnKeyDown;
+        AddRow(table, startRow + 1, $"{label} key", controls.Key);
+
+        var modifiers = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false
+        };
+        foreach (var checkBox in controls.ModifierBoxes)
+        {
+            StyleCheckBox(checkBox);
+            checkBox.Margin = new Padding(0, 4, 14, 0);
+            modifiers.Controls.Add(checkBox);
+        }
+        AddRow(table, startRow + 2, $"{label} modifiers", modifiers);
     }
 
     private void LoadSettings()
@@ -220,12 +251,8 @@ internal sealed class SettingsForm : Form
         _confirmOver.Text = Math.Clamp(_settings.ConfirmLargePasteOver, 1, 1000000).ToString();
         _ocrCleanup.SelectedValue = _settings.OcrCleanupMode;
         _enhancedOcr.Checked = _settings.EnhancedOcr;
-        _hotKeyEnabled.Checked = _settings.HotKeyEnabled;
-        _hotKey.Text = _settings.HotKey;
-        _hotKeyControl.Checked = _settings.HotKeyModifiers.HasFlag(HotKeyModifiers.Control);
-        _hotKeyAlt.Checked = _settings.HotKeyModifiers.HasFlag(HotKeyModifiers.Alt);
-        _hotKeyShift.Checked = _settings.HotKeyModifiers.HasFlag(HotKeyModifiers.Shift);
-        _hotKeyWindows.Checked = _settings.HotKeyModifiers.HasFlag(HotKeyModifiers.Windows);
+        LoadHotKey(_pasteHotKey, _settings.HotKeyEnabled, _settings.HotKey, _settings.HotKeyModifiers);
+        LoadHotKey(_readHotKey, _settings.ReadHotKeyEnabled, _settings.ReadHotKey, _settings.ReadHotKeyModifiers);
         _hotKeyMode.SelectedValue = _settings.HotKeyMode;
     }
 
@@ -242,15 +269,30 @@ internal sealed class SettingsForm : Form
         _settings.ConfirmLargePasteOver = ReadInt(_confirmOver, 500, 1, 1000000);
         _settings.OcrCleanupMode = (OcrCleanupMode)_ocrCleanup.SelectedValue!;
         _settings.EnhancedOcr = _enhancedOcr.Checked;
-        _settings.HotKeyEnabled = _hotKeyEnabled.Checked;
-        _settings.HotKey = _hotKey.Text.Trim();
-        _settings.HotKeyModifiers = HotKeyModifiers.None
-            | (_hotKeyControl.Checked ? HotKeyModifiers.Control : HotKeyModifiers.None)
-            | (_hotKeyAlt.Checked ? HotKeyModifiers.Alt : HotKeyModifiers.None)
-            | (_hotKeyShift.Checked ? HotKeyModifiers.Shift : HotKeyModifiers.None)
-            | (_hotKeyWindows.Checked ? HotKeyModifiers.Windows : HotKeyModifiers.None);
+        (_settings.HotKeyEnabled, _settings.HotKey, _settings.HotKeyModifiers) = ReadHotKey(_pasteHotKey);
+        (_settings.ReadHotKeyEnabled, _settings.ReadHotKey, _settings.ReadHotKeyModifiers) = ReadHotKey(_readHotKey);
         _settings.HotKeyMode = (HotKeyMode)_hotKeyMode.SelectedValue!;
         _settings.Save();
+    }
+
+    private static void LoadHotKey(HotKeyControls controls, bool enabled, string key, HotKeyModifiers modifiers)
+    {
+        controls.Enabled.Checked = enabled;
+        controls.Key.Text = key;
+        controls.Control.Checked = modifiers.HasFlag(HotKeyModifiers.Control);
+        controls.Alt.Checked = modifiers.HasFlag(HotKeyModifiers.Alt);
+        controls.Shift.Checked = modifiers.HasFlag(HotKeyModifiers.Shift);
+        controls.Windows.Checked = modifiers.HasFlag(HotKeyModifiers.Windows);
+    }
+
+    private static (bool Enabled, string Key, HotKeyModifiers Modifiers) ReadHotKey(HotKeyControls controls)
+    {
+        var modifiers = HotKeyModifiers.None
+            | (controls.Control.Checked ? HotKeyModifiers.Control : HotKeyModifiers.None)
+            | (controls.Alt.Checked ? HotKeyModifiers.Alt : HotKeyModifiers.None)
+            | (controls.Shift.Checked ? HotKeyModifiers.Shift : HotKeyModifiers.None)
+            | (controls.Windows.Checked ? HotKeyModifiers.Windows : HotKeyModifiers.None);
+        return (controls.Enabled.Checked, controls.Key.Text.Trim(), modifiers);
     }
 
     private static Button CreateButton(string text, bool primary)
@@ -273,22 +315,17 @@ internal sealed class SettingsForm : Form
         var palette = ThemeService.GetPalette(_settings);
         ThemeService.ApplyToControl(this, palette);
 
-        foreach (var label in Controls.OfType<Label>())
+        foreach (var label in AllControls().OfType<Label>())
         {
-            label.ForeColor = label.Font.Size >= 14 ? palette.Text : palette.MutedText;
+            label.ForeColor = label.Font.Size >= 11 ? palette.Text : palette.Text;
         }
 
-        foreach (var label in Controls.OfType<TableLayoutPanel>().SelectMany(panel => panel.Controls.OfType<Label>()))
-        {
-            label.ForeColor = palette.Text;
-        }
-
-        foreach (var checkBox in Controls.OfType<TableLayoutPanel>().SelectMany(panel => panel.Controls.OfType<CheckBox>()))
+        foreach (var checkBox in AllControls().OfType<CheckBox>())
         {
             checkBox.ForeColor = palette.Text;
         }
 
-        foreach (var button in Controls.OfType<FlowLayoutPanel>().SelectMany(panel => panel.Controls.OfType<Button>()))
+        foreach (var button in AllControls().OfType<Button>())
         {
             var primary = button.Text == "Save";
             button.BackColor = primary ? palette.Accent : palette.Surface;
@@ -296,9 +333,32 @@ internal sealed class SettingsForm : Form
             button.FlatAppearance.BorderColor = primary ? palette.Accent : palette.Border;
         }
 
-        foreach (var selector in Controls.OfType<TableLayoutPanel>().SelectMany(panel => panel.Controls.OfType<ThemedSelect>()))
+        foreach (var selector in AllControls().OfType<ThemedSelect>())
         {
             selector.SetTheme(palette);
+        }
+    }
+
+    private IEnumerable<Control> AllControls()
+    {
+        foreach (Control control in Controls)
+        {
+            foreach (var child in Descendants(control))
+            {
+                yield return child;
+            }
+        }
+    }
+
+    private static IEnumerable<Control> Descendants(Control control)
+    {
+        yield return control;
+        foreach (Control child in control.Controls)
+        {
+            foreach (var descendant in Descendants(child))
+            {
+                yield return descendant;
+            }
         }
     }
 
@@ -318,18 +378,40 @@ internal sealed class SettingsForm : Form
 
     private void HotKeyOnKeyDown(object? sender, KeyEventArgs e)
     {
+        if (sender is not TextBox textBox)
+        {
+            return;
+        }
+
         if (e.KeyCode is Keys.Back or Keys.Delete or Keys.Escape)
         {
-            _hotKey.Text = string.Empty;
+            textBox.Text = string.Empty;
         }
         else if (e.KeyCode is not (Keys.Control or Keys.ControlKey or Keys.LControlKey or Keys.RControlKey
                  or Keys.Alt or Keys.Menu or Keys.LMenu or Keys.RMenu
                  or Keys.Shift or Keys.ShiftKey or Keys.LShiftKey or Keys.RShiftKey
                  or Keys.LWin or Keys.RWin))
         {
-            _hotKey.Text = e.KeyCode.ToString();
+            textBox.Text = e.KeyCode.ToString();
         }
 
         e.SuppressKeyPress = true;
+    }
+
+    private sealed class HotKeyControls
+    {
+        public CheckBox Enabled { get; }
+        public TextBox Key { get; } = new();
+        public CheckBox Control { get; } = new() { Text = "Ctrl" };
+        public CheckBox Alt { get; } = new() { Text = "Alt" };
+        public CheckBox Shift { get; } = new() { Text = "Shift" };
+        public CheckBox Windows { get; } = new() { Text = "Win" };
+
+        public HotKeyControls(string enabledText)
+        {
+            Enabled = new CheckBox { Text = enabledText };
+        }
+
+        public IEnumerable<CheckBox> ModifierBoxes => [Control, Alt, Shift, Windows];
     }
 }

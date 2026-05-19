@@ -302,7 +302,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
     }
 
-    private void HotKeyManagerOnHotKeyPressed(object? sender, EventArgs e)
+    private void HotKeyManagerOnHotKeyPressed(object? sender, HotKeyPressedEventArgs e)
     {
         Task.Run(() =>
         {
@@ -313,7 +313,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
             _uiContext.Post(_ =>
             {
-                if (_settings.HotKeyMode == HotKeyMode.JustStartTyping)
+                if (e.Action == HotKeyAction.ReadScreenArea)
+                {
+                    _ = ReadScreenAreaAsync();
+                }
+                else if (_settings.HotKeyMode == HotKeyMode.JustStartTyping)
                 {
                     StartTypingActiveWindow();
                 }
