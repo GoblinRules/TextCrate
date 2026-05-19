@@ -45,6 +45,7 @@ internal sealed class SettingsForm : Form
         Controls.Add(new Label
         {
             Text = "Settings",
+            UseMnemonic = false,
             Font = new Font("Segoe UI Semibold", 16F),
             AutoSize = true,
             Location = new Point(24, 22)
@@ -53,6 +54,7 @@ internal sealed class SettingsForm : Form
         Controls.Add(new Label
         {
             Text = "Configure typing, OCR, startup behavior, notifications, shortcuts, and help.",
+            UseMnemonic = false,
             AutoSize = false,
             Location = new Point(24, 56),
             Size = new Size(620, 24)
@@ -71,6 +73,7 @@ internal sealed class SettingsForm : Form
             var button = new Button
             {
                 Text = tab,
+                UseMnemonic = false,
                 Width = tab == "Help & About" ? 118 : 86,
                 Height = 32,
                 Margin = new Padding(0, 0, 8, 0),
@@ -285,6 +288,7 @@ internal sealed class SettingsForm : Form
         parent.Controls.Add(new Label
         {
             Text = text,
+            UseMnemonic = false,
             Font = new Font("Segoe UI Semibold", 12F),
             AutoSize = true,
             Location = new Point(0, y)
@@ -296,6 +300,7 @@ internal sealed class SettingsForm : Form
         parent.Controls.Add(new Label
         {
             Text = text,
+            UseMnemonic = false,
             Font = new Font("Segoe UI Semibold", 10F),
             AutoSize = true,
             Location = new Point(0, y)
@@ -307,6 +312,7 @@ internal sealed class SettingsForm : Form
         parent.Controls.Add(new Label
         {
             Text = text,
+            UseMnemonic = false,
             AutoSize = false,
             Location = new Point(0, y),
             Size = new Size(width, 86)
@@ -318,6 +324,7 @@ internal sealed class SettingsForm : Form
         table.Controls.Add(new Label
         {
             Text = label,
+            UseMnemonic = false,
             AutoSize = true,
             Anchor = AnchorStyles.Left
         }, 0, row);
