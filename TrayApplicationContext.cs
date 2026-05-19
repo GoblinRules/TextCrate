@@ -75,14 +75,25 @@ internal sealed class TrayApplicationContext : ApplicationContext
             return;
         }
 
+        BeginBusy("TextCrate: preparing paste");
+
         if (!TryGetClipboardText(out var text))
         {
+            EndBusy();
+            return;
+        }
+
+        if (!ConfirmTyping(text, "the target you choose next"))
+        {
+            Logger.Info($"Typing declined before target selection with {text.Length} characters.");
+            EndBusy();
             return;
         }
 
         using var targetPicker = new TargetPickerForm();
         if (targetPicker.ShowDialog() != DialogResult.OK || targetPicker.TargetPoint is not { } point)
         {
+            EndBusy();
             return;
         }
 
@@ -97,20 +108,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             SystemSounds.Beep.Play();
             Logger.Info("Target paste cancelled because no target window was found.");
+            EndBusy();
             return;
         }
 
         var targetTitle = Native.GetWindowTitle(target);
-        if (!ConfirmTyping(text, targetTitle))
-        {
-            Native.SetForegroundWindow(target);
-            Logger.Info($"Typing declined for target '{targetTitle}' with {text.Length} characters.");
-            return;
-        }
-
         Logger.Info($"Typing {text.Length} characters into target '{targetTitle}'.");
         Native.SetForegroundWindow(target);
-        StartTypingThread(text);
+        StartTypingThread(text, busyAlreadyStarted: true);
     }
 
     private void StartTypingActiveWindow()
@@ -131,12 +136,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
             return;
         }
 
-        StartTypingThread(text);
+        StartTypingThread(text, busyAlreadyStarted: false);
     }
 
-    private void StartTypingThread(string text)
+    private void StartTypingThread(string text, bool busyAlreadyStarted)
     {
-        var thread = new Thread(() => TypeText(text));
+        var thread = new Thread(() => TypeText(text, busyAlreadyStarted));
         thread.SetApartmentState(ApartmentState.STA);
         thread.IsBackground = true;
         thread.Start();
@@ -166,10 +171,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         return false;
     }
 
-    private void TypeText(string text)
+    private void TypeText(string text, bool busyAlreadyStarted)
     {
-        _busy = true;
-        StartActivityIndicator();
+        if (!busyAlreadyStarted)
+        {
+            BeginBusy("TextCrate: typing");
+        }
+
         SetNotifyText("TextCrate: typing");
         using var cancellation = new CancellationTokenSource();
         _typingCancellation = cancellation;
@@ -187,9 +195,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         finally
         {
-            _busy = false;
-            StopActivityIndicator();
-            SetNotifyText("TextCrate");
+            EndBusy();
         }
     }
 
@@ -322,6 +328,20 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void SetNotifyText(string text)
     {
         _uiContext.Post(_ => _notifyIcon.Text = text, null);
+    }
+
+    private void BeginBusy(string text)
+    {
+        _busy = true;
+        StartActivityIndicator();
+        SetNotifyText(text);
+    }
+
+    private void EndBusy()
+    {
+        _busy = false;
+        StopActivityIndicator();
+        SetNotifyText("TextCrate");
     }
 
     private void StartActivityIndicator()

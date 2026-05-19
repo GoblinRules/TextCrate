@@ -43,6 +43,7 @@ internal static class OcrService
         var best = candidates
             .OrderByDescending(ScoreOcrCandidate)
             .FirstOrDefault()?.Text ?? string.Empty;
+        best = CleanupCommonOcrText(best);
 
         return settings.OcrCleanupMode == OcrCleanupMode.CodeAndEnvironmentText
             ? CleanupStructuredText(best)
@@ -69,6 +70,10 @@ internal static class OcrService
             candidates.Add(RecognizeTesseractVariant(engine, originalScaled, PageSegMode.SparseText, "tess-original-scaled-sparse"));
             candidates.Add(RecognizeTesseractVariant(engine, originalScaled, PageSegMode.SingleBlock, "tess-original-scaled-block"));
 
+            using var originalSmoothScaled = ScaleSmooth(bitmap, 3);
+            candidates.Add(RecognizeTesseractVariant(engine, originalSmoothScaled, PageSegMode.Auto, "tess-original-smooth-scaled-auto"));
+            candidates.Add(RecognizeTesseractVariant(engine, originalSmoothScaled, PageSegMode.SingleBlock, "tess-original-smooth-scaled-block"));
+
             using var darkUi = BuildDarkUiTextVariant(bitmap);
             using var darkUiScaled = Scale(darkUi, 4);
             candidates.Add(RecognizeTesseractVariant(engine, darkUiScaled, PageSegMode.SparseText, "tess-dark-ui-scaled-sparse"));
@@ -80,6 +85,9 @@ internal static class OcrService
             using var processedScaled = Scale(processed, 3);
             candidates.Add(RecognizeTesseractVariant(engine, processedScaled, PageSegMode.SparseText, "tess-contrast-scaled-sparse"));
             candidates.Add(RecognizeTesseractVariant(engine, processedScaled, PageSegMode.SingleBlock, "tess-contrast-scaled-block"));
+
+            using var processedSmoothScaled = ScaleSmooth(processed, 3);
+            candidates.Add(RecognizeTesseractVariant(engine, processedSmoothScaled, PageSegMode.SingleBlock, "tess-contrast-smooth-scaled-block"));
 
             using var badge = BuildColoredBadgeVariant(bitmap);
             using var badgeScaled = Scale(badge, 4);
@@ -290,6 +298,79 @@ internal static class OcrService
             .Replace("：", ":")
             .Replace("–", "-")
             .Replace("—", "-");
+    }
+
+    private static string CleanupCommonOcrText(string text)
+    {
+        var result = Regex.Replace(
+            text,
+            @"\bHight(?=\s+Light\b)",
+            "Night",
+            RegexOptions.IgnoreCase);
+
+        result = Regex.Replace(
+            result,
+            @"\b([0-9OIlSB]{2}):([0-9OIlSB]{2})(?::([0-9OIlSB]{2}))?\b",
+            match =>
+            {
+                var hour = NormalizeTimePart(match.Groups[1].Value);
+                var minute = NormalizeTimePart(match.Groups[2].Value);
+                var second = match.Groups[3].Success ? NormalizeTimePart(match.Groups[3].Value) : null;
+
+                if (int.TryParse(hour, out var h) && h > 23)
+                {
+                    var adjusted = hour.ToCharArray();
+                    if (adjusted[0] is '6' or '8')
+                    {
+                        adjusted[0] = '0';
+                        var candidate = new string(adjusted);
+                        if (int.TryParse(candidate, out h) && h <= 23)
+                        {
+                            hour = candidate;
+                        }
+                    }
+                }
+
+                minute = RepairInvalidMinuteOrSecond(minute);
+                if (second is not null)
+                {
+                    second = RepairInvalidMinuteOrSecond(second);
+                }
+
+                return second is null ? $"{hour}:{minute}" : $"{hour}:{minute}:{second}";
+            });
+
+        return result;
+    }
+
+    private static string NormalizeTimePart(string value)
+    {
+        return value
+            .Replace('O', '0')
+            .Replace('I', '1')
+            .Replace('l', '1')
+            .Replace('S', '5')
+            .Replace('B', '8');
+    }
+
+    private static string RepairInvalidMinuteOrSecond(string value)
+    {
+        if (!int.TryParse(value, out var number) || number <= 59)
+        {
+            return value;
+        }
+
+        var adjusted = value.ToCharArray();
+        for (var i = 0; i < adjusted.Length; i++)
+        {
+            if (adjusted[i] is '6' or '8')
+            {
+                adjusted[i] = '0';
+            }
+        }
+
+        var candidate = new string(adjusted);
+        return int.TryParse(candidate, out number) && number <= 59 ? candidate : value;
     }
 
     private static double ScoreOcrCandidate(OcrCandidate candidate)
@@ -549,6 +630,16 @@ internal static class OcrService
         using var graphics = Graphics.FromImage(bitmap);
         graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
         graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.Half;
+        graphics.DrawImage(source, new Rectangle(Point.Empty, bitmap.Size));
+        return bitmap;
+    }
+
+    private static Bitmap ScaleSmooth(Bitmap source, int factor)
+    {
+        var bitmap = new Bitmap(source.Width * factor, source.Height * factor, PixelFormat.Format24bppRgb);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+        graphics.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.HighQuality;
         graphics.DrawImage(source, new Rectangle(Point.Empty, bitmap.Size));
         return bitmap;
     }

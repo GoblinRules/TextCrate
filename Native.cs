@@ -161,6 +161,13 @@ internal static class Native
             return;
         }
 
+        if (method == TypingMethod.SendInput && delayMs <= 1)
+        {
+            SendTextFast(text, cancellationToken);
+            return;
+        }
+
+        var layout = GetKeyboardLayout(GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero));
         foreach (var ch in text)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -170,7 +177,7 @@ internal static class Native
             }
             else
             {
-                SendCharacter(ch);
+                SendCharacter(ch, layout);
             }
 
             if (delayMs > 0)
@@ -192,27 +199,69 @@ internal static class Native
         };
     }
 
-    private static void SendCharacter(char character)
+    private static void SendTextFast(string text, CancellationToken cancellationToken)
+    {
+        var layout = GetKeyboardLayout(GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero));
+        var batch = new List<Input>(Math.Min(text.Length * 4, 16384));
+
+        foreach (var ch in text)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            AddCharacterInputs(ch, layout, batch);
+            if (batch.Count >= 512)
+            {
+                SendInputBatch(batch);
+                batch.Clear();
+            }
+        }
+
+        if (batch.Count > 0)
+        {
+            SendInputBatch(batch);
+        }
+    }
+
+    private static void SendInputBatch(List<Input> inputs)
+    {
+        const int chunkSize = 512;
+        var offset = 0;
+        while (offset < inputs.Count)
+        {
+            var count = Math.Min(chunkSize, inputs.Count - offset);
+            var chunk = new Input[count];
+            inputs.CopyTo(offset, chunk, 0, count);
+            SendInput((uint)count, chunk, Marshal.SizeOf<Input>());
+            offset += count;
+        }
+    }
+
+    private static void SendCharacter(char character, IntPtr layout)
+    {
+        var inputs = new List<Input>(8);
+        AddCharacterInputs(character, layout, inputs);
+        SendInputBatch(inputs);
+    }
+
+    private static void AddCharacterInputs(char character, IntPtr layout, List<Input> inputs)
     {
         switch (character)
         {
             case '\r':
                 return;
             case '\n':
-                SendKey(Keys.Enter, false);
-                SendKey(Keys.Enter, true);
+                AddKeyInput(Keys.Enter, false, inputs);
+                AddKeyInput(Keys.Enter, true, inputs);
                 return;
             case '\t':
-                SendKey(Keys.Tab, false);
-                SendKey(Keys.Tab, true);
+                AddKeyInput(Keys.Tab, false, inputs);
+                AddKeyInput(Keys.Tab, true, inputs);
                 return;
         }
 
-        var layout = GetKeyboardLayout(GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero));
         var result = VkKeyScanEx(character, layout);
         if ((result & 0xff) == 0xff)
         {
-            SendUnicodeCharacter(character);
+            AddUnicodeCharacterInputs(character, inputs);
             return;
         }
 
@@ -226,22 +275,29 @@ internal static class Native
 
         foreach (var modifier in modifiers)
         {
-            SendKey((Keys)modifier, false);
+            AddKeyInput((Keys)modifier, false, inputs);
         }
 
-        SendKey((Keys)virtualKey, false);
-        SendKey((Keys)virtualKey, true);
+        AddKeyInput((Keys)virtualKey, false, inputs);
+        AddKeyInput((Keys)virtualKey, true, inputs);
 
         for (var i = modifiers.Count - 1; i >= 0; i--)
         {
-            SendKey((Keys)modifiers[i], true);
+            AddKeyInput((Keys)modifiers[i], true, inputs);
         }
     }
 
     private static void SendKey(Keys key, bool keyUp)
     {
+        var inputs = new List<Input>(1);
+        AddKeyInput(key, keyUp, inputs);
+        SendInputBatch(inputs);
+    }
+
+    private static void AddKeyInput(Keys key, bool keyUp, List<Input> inputs)
+    {
         var virtualKey = (byte)key;
-        var input = new Input
+        inputs.Add(new Input
         {
             Type = InputKeyboard,
             Keyboard = new KeyboardInput
@@ -252,12 +308,17 @@ internal static class Native
                 Time = 0,
                 ExtraInfo = IntPtr.Zero
             }
-        };
-
-        SendInput(1, [input], Marshal.SizeOf<Input>());
+        });
     }
 
     private static void SendUnicodeCharacter(char character)
+    {
+        var inputs = new List<Input>(2);
+        AddUnicodeCharacterInputs(character, inputs);
+        SendInputBatch(inputs);
+    }
+
+    private static void AddUnicodeCharacterInputs(char character, List<Input> inputs)
     {
         var down = new Input
         {
@@ -274,6 +335,7 @@ internal static class Native
 
         var up = down;
         up.Keyboard.Flags = KeyEventFUnicode | KeyEventFKeyUp;
-        SendInput(2, [down, up], Marshal.SizeOf<Input>());
+        inputs.Add(down);
+        inputs.Add(up);
     }
 }
