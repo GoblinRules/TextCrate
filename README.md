@@ -1,6 +1,6 @@
 # TextCrate
 
-TextCrate is a Windows tray utility by **GoblinRules / Ghost Kernel** for working with remote VMs, browser consoles, and systems where shared clipboard is unreliable or unavailable.
+TextCrate is a Windows tray utility by **Goblin Rules** for working with remote VMs, browser consoles, and systems where shared clipboard is unreliable or unavailable.
 
 It has two core jobs:
 
@@ -83,4 +83,4 @@ Artifacts are written to `artifacts/`.
 
 ## License
 
-Copyright (c) 2026 GoblinRules / Ghost Kernel.
+Copyright (c) 2026 Goblin Rules.

@@ -100,7 +100,7 @@ $upgradeCode = "f87c5f2b-4771-4f03-b86b-70dff58f5150"
 
 @"
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <Package Name="TextCrate" Manufacturer="Ghost Kernel" Version="$version" UpgradeCode="$upgradeCode" Scope="perMachine">
+  <Package Name="TextCrate" Manufacturer="Goblin Rules" Version="$version" UpgradeCode="$upgradeCode" Scope="perMachine">
     <MajorUpgrade DowngradeErrorMessage="A newer version of TextCrate is already installed." />
     <MediaTemplate EmbedCab="yes" />
     <Icon Id="TextCrateIcon" SourceFile="$iconPath" />
@@ -121,7 +121,7 @@ $componentXml    </ComponentGroup>
     <Component Id="ApplicationShortcut" Directory="ApplicationProgramsFolder" Guid="*">
       <Shortcut Id="ApplicationStartMenuShortcut" Name="TextCrate" Description="Launch TextCrate" Target="[INSTALLFOLDER]TextCrate.exe" WorkingDirectory="INSTALLFOLDER" />
       <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
-      <RegistryValue Root="HKCU" Key="Software\Ghost Kernel\TextCrate" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+      <RegistryValue Root="HKCU" Key="Software\Goblin Rules\TextCrate" Name="installed" Type="integer" Value="1" KeyPath="yes" />
     </Component>
 
     <Feature Id="MainFeature" Title="TextCrate" Level="1">

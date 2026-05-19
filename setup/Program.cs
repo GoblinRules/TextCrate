@@ -114,7 +114,7 @@ internal sealed class SetupForm : Form
         });
         Controls.Add(new Label
         {
-            Text = "Version 1.0.1 - GoblinRules / Ghost Kernel - ghostkernel.cc",
+            Text = "Version 1.0.2 - Goblin Rules - Ghost Kernel - ghostkernel.cc",
             ForeColor = Color.FromArgb(71, 85, 105),
             Location = new Point(88, 67),
             Size = new Size(420, 24)
@@ -314,8 +314,8 @@ internal sealed class SetupForm : Form
         using var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\TextCrate");
         var installerPath = Path.Combine(installPath, "TextCrate.Setup.exe");
         key.SetValue("DisplayName", "TextCrate");
-        key.SetValue("DisplayVersion", "1.0.1");
-        key.SetValue("Publisher", "GoblinRules / Ghost Kernel");
+        key.SetValue("DisplayVersion", "1.0.2");
+        key.SetValue("Publisher", "Goblin Rules");
         key.SetValue("URLInfoAbout", "https://ghostkernel.cc");
         key.SetValue("InstallLocation", installPath);
         key.SetValue("DisplayIcon", Path.Combine(installPath, "TextCrate.exe"));

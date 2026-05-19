@@ -31,7 +31,7 @@ internal sealed class SettingsForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(680, 620);
+        ClientSize = new Size(700, 700);
         Font = new Font("Segoe UI", 9F);
 
         BuildLayout();
@@ -61,7 +61,7 @@ internal sealed class SettingsForm : Form
         var tabs = new FlowLayoutPanel
         {
             Location = new Point(24, 92),
-            Size = new Size(632, 42),
+            Size = new Size(652, 42),
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
             BackColor = Color.Transparent
@@ -91,8 +91,8 @@ internal sealed class SettingsForm : Form
 
         var buttons = new FlowLayoutPanel
         {
-            Location = new Point(24, 548),
-            Size = new Size(632, 42),
+            Location = new Point(24, 628),
+            Size = new Size(652, 42),
             FlowDirection = FlowDirection.RightToLeft,
             BackColor = Color.Transparent
         };
@@ -166,7 +166,7 @@ internal sealed class SettingsForm : Form
         table.SetColumnSpan(_confirmLargePaste, 2);
         AddRow(table, 4, "Confirm over characters", _confirmOver);
 
-        AddInfo(page, "Tip: 0 or 1 ms uses the fast batched SendInput path. Use 2 ms or more if a slow VM console drops characters.", 280, 560);
+        AddInfo(page, "Tip: 0 or 1 ms uses the fast batched SendInput path. Use 2 ms or more if a slow VM console drops characters.", 314, 590);
     }
 
     private void BuildOcrPage()
@@ -231,16 +231,16 @@ internal sealed class SettingsForm : Form
     {
         var page = CreatePage("Help & About");
         AddSectionTitle(page, "Help & About", 0);
-        AddInfo(page, "TextCrate 1.0.0\nGoblinRules / Ghost Kernel\nhttps://ghostkernel.cc", 32, 570);
+        AddInfo(page, $"TextCrate {GetVersion()}\nPublisher: Goblin Rules\nGhost Kernel: https://ghostkernel.cc", 32, 590);
 
         AddSubheading(page, "Quick actions", 112);
         AddInfo(page, "Left-click tray icon: paste clipboard to a target.\nRight-click tray icon: paste, read screen area, relaunch as administrator, settings, cancel typing, and exit.\nEsc: cancel target or region selection.", 140, 570);
 
         AddSubheading(page, "Troubleshooting", 254);
-        AddInfo(page, "If text types into the wrong place, use target mode and click directly inside the destination input area.\nIf characters are missed, increase the delay between keys.\nIf OCR misses text, draw a tighter rectangle and keep enhanced OCR enabled.", 282, 570);
+        AddInfo(page, "If text types into the wrong place, use target mode and click directly inside the destination input area.\nIf characters are missed, increase the delay between keys.\nIf OCR misses text, draw a tighter rectangle and keep enhanced OCR enabled.", 282, 590);
 
         var openLog = CreateButton("Open Log", false);
-        openLog.Location = new Point(0, 348);
+        openLog.Location = new Point(0, 386);
         openLog.Click += (_, _) => OpenLogFile();
         page.Controls.Add(openLog);
     }
@@ -250,7 +250,7 @@ internal sealed class SettingsForm : Form
         var page = new Panel
         {
             Location = new Point(24, 146),
-            Size = new Size(632, 392),
+            Size = new Size(652, 462),
             BackColor = Color.Transparent,
             Visible = false
         };
@@ -264,7 +264,7 @@ internal sealed class SettingsForm : Form
         var table = new TableLayoutPanel
         {
             Location = new Point(0, y),
-            Size = new Size(600, rowCount * 34),
+            Size = new Size(624, rowCount * 34),
             ColumnCount = 2,
             RowCount = rowCount,
             BackColor = Color.Transparent
@@ -324,7 +324,7 @@ internal sealed class SettingsForm : Form
         control.Dock = DockStyle.None;
         control.Anchor = AnchorStyles.Left | AnchorStyles.Right;
         control.Margin = new Padding(0, 3, 0, 3);
-        control.Width = 372;
+        control.Width = 396;
         if (control is ThemedSelect)
         {
             control.Height = 28;
@@ -381,6 +381,11 @@ internal sealed class SettingsForm : Form
         {
             MessageBox.Show(this, ex.Message, "TextCrate Log", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
+    }
+
+    private static string GetVersion()
+    {
+        return Application.ProductVersion.Split('+')[0];
     }
 
     private void LoadSettings()

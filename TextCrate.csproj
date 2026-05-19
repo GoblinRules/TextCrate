@@ -9,16 +9,16 @@
     <ApplicationIcon>assets\icon.ico</ApplicationIcon>
     <AssemblyName>TextCrate</AssemblyName>
     <RootNamespace>TextCrate</RootNamespace>
-    <Version>1.0.1</Version>
-    <AssemblyVersion>1.0.1.0</AssemblyVersion>
-    <FileVersion>1.0.1.0</FileVersion>
-    <InformationalVersion>1.0.1</InformationalVersion>
+    <Version>1.0.2</Version>
+    <AssemblyVersion>1.0.2.0</AssemblyVersion>
+    <FileVersion>1.0.2.0</FileVersion>
+    <InformationalVersion>1.0.2</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
-    <Authors>GoblinRules; Ghost Kernel</Authors>
-    <Company>Ghost Kernel</Company>
+    <Authors>Goblin Rules</Authors>
+    <Company>Goblin Rules</Company>
     <Product>TextCrate</Product>
     <Description>Tray utility for typing clipboard text into remote consoles and copying screen text with OCR.</Description>
-    <Copyright>Copyright © 2026 GoblinRules / Ghost Kernel</Copyright>
+    <Copyright>Copyright © 2026 Goblin Rules</Copyright>
     <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
   </PropertyGroup>
 
