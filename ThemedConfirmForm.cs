@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace TextCrate;
 
 internal sealed class ThemedConfirmForm : Form
@@ -18,11 +20,22 @@ internal sealed class ThemedConfirmForm : Form
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         MinimizeBox = false;
-        ShowInTaskbar = false;
+        ShowInTaskbar = true;
         StartPosition = FormStartPosition.CenterScreen;
+        TopMost = true;
         ClientSize = new Size(500, 230);
 
         BuildLayout();
+    }
+
+    protected override void OnShown(EventArgs e)
+    {
+        base.OnShown(e);
+        WindowState = FormWindowState.Normal;
+        BringToFront();
+        Activate();
+        SetForegroundWindow(Handle);
+        FlashWindow(Handle, invert: true);
     }
 
     private void BuildLayout()
@@ -106,4 +119,10 @@ internal sealed class ThemedConfirmForm : Form
             UseVisualStyleBackColor = false
         };
     }
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr windowHandle);
+
+    [DllImport("user32.dll")]
+    private static extern bool FlashWindow(IntPtr windowHandle, bool invert);
 }
