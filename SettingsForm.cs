@@ -18,6 +18,9 @@ internal sealed class SettingsForm : Form
     private readonly HotKeyControls _pasteHotKey = new("Enable paste hotkey");
     private readonly HotKeyControls _readHotKey = new("Enable read screen hotkey");
     private readonly ToolTip _toolTip = new();
+    private readonly Dictionary<string, Button> _tabButtons = [];
+    private readonly Dictionary<string, Panel> _pages = [];
+    private string _activeTab = "General";
 
     public SettingsForm(AppSettings settings)
     {
@@ -28,12 +31,13 @@ internal sealed class SettingsForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(660, 790);
+        ClientSize = new Size(680, 620);
         Font = new Font("Segoe UI", 9F);
 
         BuildLayout();
         LoadSettings();
         ApplyTheme();
+        ShowPage(_activeTab);
     }
 
     private void BuildLayout()
@@ -48,102 +52,47 @@ internal sealed class SettingsForm : Form
 
         Controls.Add(new Label
         {
-            Text = "Configure typing, OCR, startup behavior, notifications, and shortcuts.",
+            Text = "Configure typing, OCR, startup behavior, notifications, shortcuts, and help.",
             AutoSize = false,
             Location = new Point(24, 56),
-            Size = new Size(590, 28)
+            Size = new Size(620, 24)
         });
 
-        var content = new Panel
+        var tabs = new FlowLayoutPanel
         {
-            Location = new Point(24, 96),
-            Size = new Size(612, 610),
-            AutoScroll = true,
+            Location = new Point(24, 92),
+            Size = new Size(632, 42),
+            FlowDirection = FlowDirection.LeftToRight,
+            WrapContents = false,
             BackColor = Color.Transparent
         };
-
-        var y = 0;
-        y = AddSection(content, y, "General", 2, table =>
+        foreach (var tab in new[] { "General", "Paste", "OCR", "Startup", "Hotkeys", "Help & About" })
         {
-            _theme.SetOptions(
-                new SelectOption("Use system theme", AppTheme.System),
-                new SelectOption("Light", AppTheme.Light),
-                new SelectOption("Dark", AppTheme.Dark));
-            _theme.SelectedValueChanged += (_, _) =>
+            var button = new Button
             {
-                if (_theme.SelectedValue is AppTheme theme)
-                {
-                    _settings.Theme = theme;
-                    ApplyTheme();
-                }
+                Text = tab,
+                Width = tab == "Help & About" ? 118 : 86,
+                Height = 32,
+                Margin = new Padding(0, 0, 8, 0),
+                FlatStyle = FlatStyle.Flat
             };
-            AddRow(table, 0, "Theme", _theme);
+            button.Click += (_, _) => ShowPage(tab);
+            _tabButtons[tab] = button;
+            tabs.Controls.Add(button);
+        }
+        Controls.Add(tabs);
 
-            _notifications.Text = "Show completion notifications";
-            StyleCheckBox(_notifications);
-            table.Controls.Add(_notifications, 0, 1);
-            table.SetColumnSpan(_notifications, 2);
-        });
-
-        y = AddSection(content, y, "Paste", 5, table =>
-        {
-            _typingMethod.SetOptions(
-                new SelectOption("SendInput scan codes", TypingMethod.SendInput),
-                new SelectOption("SendKeys compatibility", TypingMethod.SendKeys),
-                new SelectOption("Clipboard paste (Ctrl+V)", TypingMethod.ClipboardPaste));
-            AddRow(table, 0, "Typing method", _typingMethod);
-            AddRow(table, 1, "Delay between keys (ms)", _keyDelay);
-            AddRow(table, 2, "Start delay (ms)", _startDelay);
-
-            _confirmLargePaste.Text = "Confirm large paste operations";
-            StyleCheckBox(_confirmLargePaste);
-            table.Controls.Add(_confirmLargePaste, 0, 3);
-            table.SetColumnSpan(_confirmLargePaste, 2);
-
-            AddRow(table, 4, "Confirm over characters", _confirmOver);
-        });
-
-        y = AddSection(content, y, "Screen Reading", 2, table =>
-        {
-            _ocrCleanup.SetOptions(
-                new SelectOption("Plain text", OcrCleanupMode.PlainText),
-                new SelectOption("Code and .env text", OcrCleanupMode.CodeAndEnvironmentText));
-            AddRow(table, 0, "OCR cleanup", _ocrCleanup);
-
-            _enhancedOcr.Text = "Enhanced OCR";
-            StyleCheckBox(_enhancedOcr);
-            table.Controls.Add(_enhancedOcr, 0, 1);
-            table.SetColumnSpan(_enhancedOcr, 2);
-        });
-
-        y = AddSection(content, y, "Startup", 2, table =>
-        {
-            _startWithWindows.Text = "Start with Windows";
-            _startAsAdmin.Text = "Start as administrator when launching";
-            foreach (var checkBox in new[] { _startWithWindows, _startAsAdmin })
-            {
-                StyleCheckBox(checkBox);
-                table.Controls.Add(checkBox, 0, table.Controls.Count);
-                table.SetColumnSpan(checkBox, 2);
-            }
-        });
-
-        AddSection(content, y, "Hotkeys", 8, table =>
-        {
-            AddHotKeyRows(table, 0, "Paste", _pasteHotKey);
-
-            _hotKeyMode.SetOptions(
-                new SelectOption("Choose target window", HotKeyMode.TargetMode),
-                new SelectOption("Type into active window", HotKeyMode.JustStartTyping));
-            AddRow(table, 3, "Paste action", _hotKeyMode);
-
-            AddHotKeyRows(table, 4, "Read screen", _readHotKey);
-        });
+        BuildGeneralPage();
+        BuildPastePage();
+        BuildOcrPage();
+        BuildStartupPage();
+        BuildHotkeysPage();
+        BuildHelpPage();
 
         var buttons = new FlowLayoutPanel
         {
-            Location = new Point(24, 724),
-            Size = new Size(612, 42),
+            Location = new Point(24, 548),
+            Size = new Size(632, 42),
             FlowDirection = FlowDirection.RightToLeft,
             BackColor = Color.Transparent
         };
@@ -155,7 +104,6 @@ internal sealed class SettingsForm : Form
 
         AcceptButton = ok;
         CancelButton = cancel;
-        Controls.Add(content);
         Controls.Add(buttons);
 
         _toolTip.SetToolTip(_typingMethod, "SendInput is best for VM consoles. SendKeys is a fallback. Clipboard paste uses Ctrl+V when the target supports it.");
@@ -171,21 +119,147 @@ internal sealed class SettingsForm : Form
         _toolTip.SetToolTip(_hotKeyMode, "Choose whether the paste hotkey asks for a target first or types into the active window.");
     }
 
-    private int AddSection(Panel parent, int y, string title, int rowCount, Action<TableLayoutPanel> build)
+    private void BuildGeneralPage()
     {
-        var label = new Label
-        {
-            Text = title,
-            Font = new Font("Segoe UI Semibold", 11F),
-            AutoSize = true,
-            Location = new Point(0, y)
-        };
-        parent.Controls.Add(label);
+        var page = CreatePage("General");
+        AddSectionTitle(page, "General", 0);
+        var table = CreateTable(page, 40, 2);
 
+        _theme.SetOptions(
+            new SelectOption("Use system theme", AppTheme.System),
+            new SelectOption("Light", AppTheme.Light),
+            new SelectOption("Dark", AppTheme.Dark));
+        _theme.SelectedValueChanged += (_, _) =>
+        {
+            if (_theme.SelectedValue is AppTheme theme)
+            {
+                _settings.Theme = theme;
+                ApplyTheme();
+            }
+        };
+        AddRow(table, 0, "Theme", _theme);
+
+        _notifications.Text = "Show completion notifications";
+        StyleCheckBox(_notifications);
+        table.Controls.Add(_notifications, 0, 1);
+        table.SetColumnSpan(_notifications, 2);
+    }
+
+    private void BuildPastePage()
+    {
+        var page = CreatePage("Paste");
+        AddSectionTitle(page, "Paste", 0);
+        AddInfo(page, "Left-click the tray icon to choose a target, or use the paste hotkey. TextCrate types the current clipboard into the target window.", 32, 560);
+
+        var table = CreateTable(page, 98, 5);
+        _typingMethod.SetOptions(
+            new SelectOption("SendInput scan codes", TypingMethod.SendInput),
+            new SelectOption("SendKeys compatibility", TypingMethod.SendKeys),
+            new SelectOption("Clipboard paste (Ctrl+V)", TypingMethod.ClipboardPaste));
+        AddRow(table, 0, "Typing method", _typingMethod);
+        AddRow(table, 1, "Delay between keys (ms)", _keyDelay);
+        AddRow(table, 2, "Start delay (ms)", _startDelay);
+
+        _confirmLargePaste.Text = "Confirm large paste operations";
+        StyleCheckBox(_confirmLargePaste);
+        table.Controls.Add(_confirmLargePaste, 0, 3);
+        table.SetColumnSpan(_confirmLargePaste, 2);
+        AddRow(table, 4, "Confirm over characters", _confirmOver);
+
+        AddInfo(page, "Tip: 0 or 1 ms uses the fast batched SendInput path. Use 2 ms or more if a slow VM console drops characters.", 280, 560);
+    }
+
+    private void BuildOcrPage()
+    {
+        var page = CreatePage("OCR");
+        AddSectionTitle(page, "Screen Reading", 0);
+        AddInfo(page, "Read screen area copies text from a rectangle you draw on screen. It is intended for remote VMs and dashboards where clipboard sharing is unavailable.", 32, 570);
+
+        var table = CreateTable(page, 100, 2);
+        _ocrCleanup.SetOptions(
+            new SelectOption("Plain text", OcrCleanupMode.PlainText),
+            new SelectOption("Code and .env text", OcrCleanupMode.CodeAndEnvironmentText));
+        AddRow(table, 0, "OCR cleanup", _ocrCleanup);
+
+        _enhancedOcr.Text = "Enhanced OCR";
+        StyleCheckBox(_enhancedOcr);
+        table.Controls.Add(_enhancedOcr, 0, 1);
+        table.SetColumnSpan(_enhancedOcr, 2);
+
+        AddSubheading(page, "How it works", 186);
+        AddInfo(page, "TextCrate captures only the selected screen area, runs bundled Tesseract OCR first, then tries Windows OCR and extra image passes when enhanced OCR is enabled. It scores the results and copies the best text to your clipboard.", 214, 570);
+
+        AddSubheading(page, "Practical limits", 308);
+        AddInfo(page, "Small fonts, low contrast, anti-aliased browser text, and colored status pills can still be misread. Tight selections usually improve accuracy. Code and .env cleanup is best for variable names, URLs, ports, and timestamps; plain text is better for normal sentences.", 336, 570);
+    }
+
+    private void BuildStartupPage()
+    {
+        var page = CreatePage("Startup");
+        AddSectionTitle(page, "Startup", 0);
+        AddInfo(page, "Startup options are stored per Windows user. Administrator launch will still show a UAC prompt because the app is unsigned.", 32, 560);
+
+        var table = CreateTable(page, 96, 2);
+        _startWithWindows.Text = "Start with Windows";
+        _startAsAdmin.Text = "Start as administrator when launching";
+        StyleCheckBox(_startWithWindows);
+        StyleCheckBox(_startAsAdmin);
+        table.Controls.Add(_startWithWindows, 0, 0);
+        table.SetColumnSpan(_startWithWindows, 2);
+        table.Controls.Add(_startAsAdmin, 0, 1);
+        table.SetColumnSpan(_startAsAdmin, 2);
+    }
+
+    private void BuildHotkeysPage()
+    {
+        var page = CreatePage("Hotkeys");
+        AddSectionTitle(page, "Hotkeys", 0);
+        AddInfo(page, "Hotkeys are registered with Windows. If another app already owns a shortcut, TextCrate will warn when you save.", 32, 560);
+
+        var table = CreateTable(page, 92, 8);
+        AddHotKeyRows(table, 0, "Paste", _pasteHotKey);
+
+        _hotKeyMode.SetOptions(
+            new SelectOption("Choose target window", HotKeyMode.TargetMode),
+            new SelectOption("Type into active window", HotKeyMode.JustStartTyping));
+        AddRow(table, 3, "Paste action", _hotKeyMode);
+
+        AddHotKeyRows(table, 4, "Read screen", _readHotKey);
+    }
+
+    private void BuildHelpPage()
+    {
+        var page = CreatePage("Help & About");
+        AddSectionTitle(page, "Help & About", 0);
+        AddInfo(page, "TextCrate 1.0.0\nGoblinRules / Ghost Kernel\nhttps://ghostkernel.cc", 32, 570);
+
+        AddSubheading(page, "Quick actions", 112);
+        AddInfo(page, "Left-click tray icon: paste clipboard to a target.\nRight-click tray icon: paste, read screen area, relaunch as administrator, settings, cancel typing, and exit.\nEsc: cancel target or region selection.", 140, 570);
+
+        AddSubheading(page, "Troubleshooting", 254);
+        AddInfo(page, "If text types into the wrong place, use target mode and click directly inside the destination input area.\nIf characters are missed, increase the delay between keys.\nIf OCR misses text, draw a tighter rectangle and keep enhanced OCR enabled.", 282, 570);
+    }
+
+    private Panel CreatePage(string name)
+    {
+        var page = new Panel
+        {
+            Location = new Point(24, 146),
+            Size = new Size(632, 382),
+            BackColor = Color.Transparent,
+            Visible = false
+        };
+        _pages[name] = page;
+        Controls.Add(page);
+        return page;
+    }
+
+    private static TableLayoutPanel CreateTable(Control parent, int y, int rowCount)
+    {
         var table = new TableLayoutPanel
         {
-            Location = new Point(0, y + 30),
-            Size = new Size(588, rowCount * 32),
+            Location = new Point(0, y),
+            Size = new Size(600, rowCount * 34),
             ColumnCount = 2,
             RowCount = rowCount,
             BackColor = Color.Transparent
@@ -194,12 +268,44 @@ internal sealed class SettingsForm : Form
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         for (var i = 0; i < rowCount; i++)
         {
-            table.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
+            table.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
         }
 
-        build(table);
         parent.Controls.Add(table);
-        return table.Bottom + 22;
+        return table;
+    }
+
+    private static void AddSectionTitle(Control parent, string text, int y)
+    {
+        parent.Controls.Add(new Label
+        {
+            Text = text,
+            Font = new Font("Segoe UI Semibold", 12F),
+            AutoSize = true,
+            Location = new Point(0, y)
+        });
+    }
+
+    private static void AddSubheading(Control parent, string text, int y)
+    {
+        parent.Controls.Add(new Label
+        {
+            Text = text,
+            Font = new Font("Segoe UI Semibold", 10F),
+            AutoSize = true,
+            Location = new Point(0, y)
+        });
+    }
+
+    private static void AddInfo(Control parent, string text, int y, int width)
+    {
+        parent.Controls.Add(new Label
+        {
+            Text = text,
+            AutoSize = false,
+            Location = new Point(0, y),
+            Size = new Size(width, 74)
+        });
     }
 
     private static void AddRow(TableLayoutPanel table, int row, string label, Control control)
@@ -236,6 +342,16 @@ internal sealed class SettingsForm : Form
             modifiers.Controls.Add(checkBox);
         }
         AddRow(table, startRow + 2, $"{label} modifiers", modifiers);
+    }
+
+    private void ShowPage(string name)
+    {
+        _activeTab = name;
+        foreach (var (pageName, page) in _pages)
+        {
+            page.Visible = pageName == name;
+        }
+        ApplyTheme();
     }
 
     private void LoadSettings()
@@ -317,7 +433,7 @@ internal sealed class SettingsForm : Form
 
         foreach (var label in AllControls().OfType<Label>())
         {
-            label.ForeColor = label.Font.Size >= 11 ? palette.Text : palette.Text;
+            label.ForeColor = label.Font.Size >= 10 ? palette.Text : palette.MutedText;
         }
 
         foreach (var checkBox in AllControls().OfType<CheckBox>())
@@ -328,9 +444,10 @@ internal sealed class SettingsForm : Form
         foreach (var button in AllControls().OfType<Button>())
         {
             var primary = button.Text == "Save";
-            button.BackColor = primary ? palette.Accent : palette.Surface;
-            button.ForeColor = primary ? palette.AccentText : palette.Text;
-            button.FlatAppearance.BorderColor = primary ? palette.Accent : palette.Border;
+            var activeTab = _tabButtons.TryGetValue(_activeTab, out var active) && ReferenceEquals(button, active);
+            button.BackColor = primary || activeTab ? palette.Accent : palette.Surface;
+            button.ForeColor = primary || activeTab ? palette.AccentText : palette.Text;
+            button.FlatAppearance.BorderColor = primary || activeTab ? palette.Accent : palette.Border;
         }
 
         foreach (var selector in AllControls().OfType<ThemedSelect>())
