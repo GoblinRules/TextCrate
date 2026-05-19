@@ -29,6 +29,8 @@ New-Item -ItemType Directory -Force -Path $publish, $installer | Out-Null
 
 dotnet publish $project -c $Configuration -r win-x64 --self-contained true -p:PublishSingleFile=false -p:DebugType=none -p:DebugSymbols=false -o $publish
 Copy-Item -LiteralPath (Join-Path $root "README.md") -Destination (Join-Path $publish "README.md") -Force
+Copy-Item -LiteralPath (Join-Path $root "LICENSE") -Destination (Join-Path $publish "LICENSE") -Force
+Copy-Item -LiteralPath (Join-Path $root "THIRD_PARTY_NOTICES.md") -Destination (Join-Path $publish "THIRD_PARTY_NOTICES.md") -Force
 
 Compress-Archive -Path (Join-Path $publish "*") -DestinationPath $portableZip -Force
 Copy-Item -LiteralPath $portableZip -Destination $payloadZip -Force

@@ -83,4 +83,6 @@ Artifacts are written to `artifacts/`.
 
 ## License
 
-Copyright (c) 2026 Goblin Rules.
+TextCrate is licensed under the BSD 3-Clause License. See [LICENSE](LICENSE).
+
+Third-party notices are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
