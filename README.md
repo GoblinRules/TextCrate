@@ -37,7 +37,7 @@ TextCrate uses bundled Tesseract `tessdata_best` English OCR first, then falls b
   - Clipboard paste: uses Ctrl+V when the target supports clipboard paste.
 - **Delay between keys**: slows typing for remote consoles that drop characters.
 - **Start delay**: waits after selecting the target before typing starts.
-- **OCR cleanup**: plain text or code / `.env` cleanup.
+- **OCR cleanup**: plain text, code / `.env` cleanup, or passwords and tokens.
 - **Enhanced OCR**: automatic extra OCR passes for small UI and dashboard text.
 - **Show completion notifications**: enables or disables system notifications.
 - **Start with Windows**: registers TextCrate under the current user's startup apps.

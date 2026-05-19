@@ -45,9 +45,12 @@ internal static class OcrService
             .FirstOrDefault()?.Text ?? string.Empty;
         best = CleanupCommonOcrText(best);
 
-        return settings.OcrCleanupMode == OcrCleanupMode.CodeAndEnvironmentText
-            ? CleanupStructuredText(best)
-            : best;
+        return settings.OcrCleanupMode switch
+        {
+            OcrCleanupMode.CodeAndEnvironmentText => CleanupStructuredText(best),
+            OcrCleanupMode.PasswordsAndTokens => CleanupPasswordText(best),
+            _ => best
+        };
     }
 
     private static IEnumerable<OcrCandidate> RecognizeWithTesseract(Bitmap bitmap, bool enhanced)
@@ -58,7 +61,7 @@ internal static class OcrService
         engine.SetVariable("user_defined_dpi", "300");
 
         var candidates = new List<OcrCandidate>();
-        var whitelist = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-=:/.,+@#$%!?~()[]{}<>|\\'\" ";
+        const string whitelist = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789`~!@#$%^&*()-_=+[]{}\\|;:'\",.<>/? ";
         engine.SetVariable("tessedit_char_whitelist", whitelist);
 
         candidates.Add(RecognizeTesseractVariant(engine, bitmap, PageSegMode.SparseText, "tess-original-sparse"));
@@ -391,7 +394,7 @@ internal static class OcrService
             return 0;
         }
 
-        var words = Regex.Matches(text, @"[A-Za-z0-9_:/.-]+")
+        var words = Regex.Matches(text, @"[A-Za-z0-9_:/?!=@#$%^&*~+.,;""'`|\\<>\[\]{}()-]+")
             .Select(match => match.Value)
             .ToList();
         var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n', StringSplitOptions.RemoveEmptyEntries);
@@ -401,9 +404,9 @@ internal static class OcrService
         double score = candidate.Confidence * 4;
         score += words.Count(word => word.Length >= 4) * 8;
         score += Math.Min(90, characters * 1.4);
-        score += text.Count(ch => ch is '_' or '=' or ':' or '/' or '-' or '.' or '?' or '!' or '~') * 3;
+        score += text.Count(ch => ch is '_' or '=' or ':' or '/' or '-' or '.' or '?' or '!' or '~' or '@' or '#' or '$' or '%' or '^' or '&' or '*' or '+' or ';') * 3;
         score += statusCount * 25;
-        score += Regex.Matches(text, @"\b(?=\S*[a-z])(?=\S*[A-Z])(?=\S*\d)[A-Za-z0-9?!=@#$%_./:~+-]{8,}\b").Count * 35;
+        score += Regex.Matches(text, @"(?=\S*[a-z])(?=\S*[A-Z])(?=\S*\d)[A-Za-z0-9`~!@#$%^&*()_\-+=\[\]{}\\|;:'"",.<>/?]{8,}").Count * 55;
         score += Regex.Matches(text, @"\b\d{4}-\d{2}-\d{2}\b").Count * 20;
         score += Regex.Matches(text, @"\b\d{1,5}:\d{1,5}(?::\d{2})?\b").Count * 20;
 
@@ -494,6 +497,15 @@ internal static class OcrService
             return result;
         });
 
+        return string.Join(Environment.NewLine, cleaned).Trim();
+    }
+
+    private static string CleanupPasswordText(string text)
+    {
+        var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        var cleaned = lines
+            .Select(line => Regex.Replace(line.Trim(), @"\s+", string.Empty))
+            .Where(line => !string.IsNullOrWhiteSpace(line));
         return string.Join(Environment.NewLine, cleaned).Trim();
     }
 

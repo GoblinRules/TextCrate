@@ -181,7 +181,8 @@ internal sealed class SettingsForm : Form
         var table = CreateTable(page, 122, 2);
         _ocrCleanup.SetOptions(
             new SelectOption("Plain text", OcrCleanupMode.PlainText),
-            new SelectOption("Code and .env text", OcrCleanupMode.CodeAndEnvironmentText));
+            new SelectOption("Code and .env text", OcrCleanupMode.CodeAndEnvironmentText),
+            new SelectOption("Passwords and tokens", OcrCleanupMode.PasswordsAndTokens));
         AddRow(table, 0, "OCR cleanup", _ocrCleanup);
 
         _enhancedOcr.Text = "Enhanced OCR";
@@ -193,7 +194,7 @@ internal sealed class SettingsForm : Form
         AddInfo(page, "TextCrate captures only the selected screen area, runs bundled Tesseract OCR first, then tries Windows OCR and extra image passes when enhanced OCR is enabled. It scores the results and copies the best text to your clipboard.", 214, 570);
 
         AddSubheading(page, "Practical limits", 308);
-        AddInfo(page, "Small fonts, low contrast, anti-aliased browser text, and colored status pills can still be misread. Tight selections usually improve accuracy. Code and .env cleanup is best for variable names, URLs, ports, and timestamps; plain text is better for normal sentences.", 336, 570);
+        AddInfo(page, "Small fonts, low contrast, anti-aliased browser text, and colored status pills can still be misread. Tight selections usually improve accuracy. Passwords and tokens keeps full QWERTY symbols and removes spaces; code mode is best for .env keys, URLs, ports, and timestamps.", 336, 570);
     }
 
     private void BuildStartupPage()

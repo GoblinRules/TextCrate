@@ -12,7 +12,8 @@ internal enum TypingMethod
 internal enum OcrCleanupMode
 {
     PlainText = 0,
-    CodeAndEnvironmentText = 1
+    CodeAndEnvironmentText = 1,
+    PasswordsAndTokens = 2
 }
 
 internal enum AppTheme
