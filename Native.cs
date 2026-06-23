@@ -6,10 +6,13 @@ namespace TextCrate;
 internal static class Native
 {
     private const int InputKeyboard = 1;
+    private const uint KeyEventFExtendedKey = 0x0001;
     private const uint KeyEventFKeyUp = 0x0002;
     private const uint KeyEventFUnicode = 0x0004;
-    private const uint KeyEventFScanCode = 0x0008;
     private const uint MapVkToVsc = 0;
+    private const byte VkLShift = 0xA0;
+    private const byte VkLControl = 0xA2;
+    private const byte VkRMenu = 0xA5;
 
     [StructLayout(LayoutKind.Sequential)]
     private struct KeyboardInput
@@ -41,6 +44,9 @@ internal static class Native
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetKeyboardLayout(uint threadId);
+
+    [DllImport("user32.dll")]
+    private static extern uint GetKeyboardLayoutList(int count, [Out] IntPtr[]? layouts);
 
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr windowHandle, IntPtr processId);
@@ -154,19 +160,14 @@ internal static class Native
         if (method == TypingMethod.ClipboardPaste)
         {
             Clipboard.SetText(text);
-            SendKey(Keys.ControlKey, false);
+            SendKey(Keys.LControlKey, false);
             SendKey(Keys.V, false);
             SendKey(Keys.V, true);
-            SendKey(Keys.ControlKey, true);
+            SendKey(Keys.LControlKey, true);
             return;
         }
 
-        if (method == TypingMethod.SendInput && delayMs <= 1)
-        {
-            SendTextFast(text, cancellationToken);
-            return;
-        }
-
+        text = NormalizeLineEndings(text);
         var layout = GetKeyboardLayout(GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero));
         foreach (var ch in text)
         {
@@ -199,26 +200,9 @@ internal static class Native
         };
     }
 
-    private static void SendTextFast(string text, CancellationToken cancellationToken)
+    private static string NormalizeLineEndings(string text)
     {
-        var layout = GetKeyboardLayout(GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero));
-        var batch = new List<Input>(Math.Min(text.Length * 4, 16384));
-
-        foreach (var ch in text)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            AddCharacterInputs(ch, layout, batch);
-            if (batch.Count >= 512)
-            {
-                SendInputBatch(batch);
-                batch.Clear();
-            }
-        }
-
-        if (batch.Count > 0)
-        {
-            SendInputBatch(batch);
-        }
+        return text.Replace("\r\n", "\n").Replace('\r', '\n');
     }
 
     private static void SendInputBatch(List<Input> inputs)
@@ -259,7 +243,7 @@ internal static class Native
         }
 
         var result = VkKeyScanEx(character, layout);
-        if ((result & 0xff) == 0xff)
+        if (IsMissingKeyScan(result) && !TryFindKeyScanInInstalledLayouts(character, layout, out result))
         {
             AddUnicodeCharacterInputs(character, inputs);
             return;
@@ -268,23 +252,91 @@ internal static class Native
         var virtualKey = (byte)(result & 0xff);
         var shiftState = (byte)((result >> 8) & 0xff);
 
-        var modifiers = new List<byte>();
-        if ((shiftState & 1) != 0) modifiers.Add(0x10);
-        if ((shiftState & 2) != 0) modifiers.Add(0x11);
-        if ((shiftState & 4) != 0) modifiers.Add(0x12);
+        var needsShift = (shiftState & 1) != 0;
+        var needsControl = (shiftState & 2) != 0;
+        var needsAlt = (shiftState & 4) != 0;
+        var isAltGr = needsControl && needsAlt;
 
-        foreach (var modifier in modifiers)
+        if (needsShift)
         {
-            AddKeyInput((Keys)modifier, false, inputs);
+            AddKeyInput(VkLShift, false, inputs);
         }
 
-        AddKeyInput((Keys)virtualKey, false, inputs);
-        AddKeyInput((Keys)virtualKey, true, inputs);
-
-        for (var i = modifiers.Count - 1; i >= 0; i--)
+        if (isAltGr)
         {
-            AddKeyInput((Keys)modifiers[i], true, inputs);
+            AddKeyInput(VkRMenu, false, inputs, extended: true);
         }
+        else
+        {
+            if (needsControl)
+            {
+                AddKeyInput(VkLControl, false, inputs);
+            }
+
+            if (needsAlt)
+            {
+                AddKeyInput(VkRMenu, false, inputs, extended: true);
+            }
+        }
+
+        AddKeyInput(virtualKey, false, inputs);
+        AddKeyInput(virtualKey, true, inputs);
+
+        if (isAltGr)
+        {
+            AddKeyInput(VkRMenu, true, inputs, extended: true);
+        }
+        else
+        {
+            if (needsAlt)
+            {
+                AddKeyInput(VkRMenu, true, inputs, extended: true);
+            }
+
+            if (needsControl)
+            {
+                AddKeyInput(VkLControl, true, inputs);
+            }
+        }
+
+        if (needsShift)
+        {
+            AddKeyInput(VkLShift, true, inputs);
+        }
+    }
+
+    private static bool TryFindKeyScanInInstalledLayouts(char character, IntPtr activeLayout, out short result)
+    {
+        result = -1;
+        var count = (int)GetKeyboardLayoutList(0, null);
+        if (count <= 0)
+        {
+            return false;
+        }
+
+        var layouts = new IntPtr[count];
+        GetKeyboardLayoutList(count, layouts);
+        foreach (var layout in layouts)
+        {
+            if (layout == activeLayout)
+            {
+                continue;
+            }
+
+            var layoutResult = VkKeyScanEx(character, layout);
+            if (!IsMissingKeyScan(layoutResult))
+            {
+                result = layoutResult;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsMissingKeyScan(short result)
+    {
+        return (result & 0xff) == 0xff && ((result >> 8) & 0xff) == 0xff;
     }
 
     private static void SendKey(Keys key, bool keyUp)
@@ -296,7 +348,11 @@ internal static class Native
 
     private static void AddKeyInput(Keys key, bool keyUp, List<Input> inputs)
     {
-        var virtualKey = (byte)key;
+        AddKeyInput((byte)key, keyUp, inputs);
+    }
+
+    private static void AddKeyInput(byte virtualKey, bool keyUp, List<Input> inputs, bool extended = false)
+    {
         inputs.Add(new Input
         {
             Type = InputKeyboard,
@@ -304,7 +360,7 @@ internal static class Native
             {
                 VirtualKey = virtualKey,
                 ScanCode = (ushort)MapVirtualKey(virtualKey, MapVkToVsc),
-                Flags = KeyEventFScanCode | (keyUp ? KeyEventFKeyUp : 0),
+                Flags = (keyUp ? KeyEventFKeyUp : 0) | (extended ? KeyEventFExtendedKey : 0),
                 Time = 0,
                 ExtraInfo = IntPtr.Zero
             }

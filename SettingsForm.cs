@@ -111,7 +111,7 @@ internal sealed class SettingsForm : Form
 
         _toolTip.SetToolTip(_typingMethod, "SendInput is best for VM consoles. SendKeys is a fallback. Clipboard paste uses Ctrl+V when the target supports it.");
         _toolTip.SetToolTip(_theme, "Controls the settings window and tray menu appearance.");
-        _toolTip.SetToolTip(_keyDelay, "Use 0 or 1 ms for fast batched typing. Use 2 ms or higher if a remote console drops characters.");
+        _toolTip.SetToolTip(_keyDelay, "Use lower values for speed. Increase this if a remote console drops or reorders characters.");
         _toolTip.SetToolTip(_startDelay, "Waits after selecting the target before typing begins.");
         _toolTip.SetToolTip(_ocrCleanup, "Code mode repairs common OCR spacing in environment variables such as DATABASE_URL.");
         _toolTip.SetToolTip(_enhancedOcr, "Runs extra OCR passes for small UI text, table columns, colored status pills, times, and ports.");
@@ -156,7 +156,7 @@ internal sealed class SettingsForm : Form
 
         var table = CreateTable(page, 122, 5);
         _typingMethod.SetOptions(
-            new SelectOption("SendInput scan codes", TypingMethod.SendInput),
+            new SelectOption("SendInput controlled typing", TypingMethod.SendInput),
             new SelectOption("SendKeys compatibility", TypingMethod.SendKeys),
             new SelectOption("Clipboard paste (Ctrl+V)", TypingMethod.ClipboardPaste));
         AddRow(table, 0, "Typing method", _typingMethod);
@@ -169,7 +169,7 @@ internal sealed class SettingsForm : Form
         table.SetColumnSpan(_confirmLargePaste, 2);
         AddRow(table, 4, "Confirm over characters", _confirmOver);
 
-        AddInfo(page, "Tip: 0 or 1 ms uses the fast batched SendInput path. Use 2 ms or more if a slow VM console drops characters.", 314, 590);
+        AddInfo(page, "Tip: SendInput now types one character at a time for consistency. Increase the delay if a slow VM console drops characters.", 314, 590);
     }
 
     private void BuildOcrPage()

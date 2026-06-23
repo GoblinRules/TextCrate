@@ -32,7 +32,7 @@ TextCrate uses bundled Tesseract `tessdata_best` English OCR first, then falls b
 
 - **Theme**: Use system, light, or dark. Applies to settings and the tray menu.
 - **Typing method**:
-  - SendInput scan codes: best default for VM consoles.
+  - SendInput controlled typing: best default for VM consoles and special characters.
   - SendKeys compatibility: fallback for normal Windows apps.
   - Clipboard paste: uses Ctrl+V when the target supports clipboard paste.
 - **Delay between keys**: slows typing for remote consoles that drop characters.
