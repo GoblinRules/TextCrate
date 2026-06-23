@@ -26,7 +26,7 @@ The builds are unsigned. Windows may show an unknown-publisher warning until Tex
 - Choose **Read screen area to clipboard**, then drag a rectangle over text on screen.
 - Press `Esc` while choosing a target or OCR area to cancel.
 
-TextCrate uses bundled Tesseract `tessdata_best` English OCR first, then falls back to Windows OCR if needed. Enhanced OCR is enabled by default and runs extra internal passes for small UI text, table rows, colored status pills, times, ports, code, and `.env` style text without requiring mode changes.
+TextCrate uses bundled Tesseract `tessdata_best` English OCR first, then falls back to Windows OCR if needed. Enhanced OCR is enabled by default and runs extra internal passes for small UI text, low-contrast text, table rows, colored status pills, times, ports, code, and `.env` style text without requiring mode changes.
 
 ## Settings
 
@@ -38,7 +38,7 @@ TextCrate uses bundled Tesseract `tessdata_best` English OCR first, then falls b
 - **Delay between keys**: slows typing for remote consoles that drop characters.
 - **Start delay**: waits after selecting the target before typing starts.
 - **OCR cleanup**: plain text, code / `.env` cleanup, or passwords and tokens.
-- **Enhanced OCR**: automatic extra OCR passes for small UI and dashboard text.
+- **Enhanced OCR**: automatic extra OCR passes for small UI, low-contrast, and dashboard text.
 - **Show completion notifications**: enables or disables system notifications.
 - **Start with Windows**: registers TextCrate under the current user's startup apps.
 - **Start as administrator when launching**: relaunches with UAC elevation on startup.

@@ -11,7 +11,8 @@ internal static class OcrService
 {
     public static async Task<string> ReadScreenRegionAsync(Rectangle region, AppSettings settings)
     {
-        using var bitmap = Capture(region);
+        using var captured = Capture(region);
+        using var bitmap = AddQuietBorder(captured, 8);
         var candidates = new List<OcrCandidate>();
 
         try
@@ -20,24 +21,36 @@ internal static class OcrService
         }
         catch
         {
-            candidates.Add(await RecognizeWithWindowsAsync(bitmap, "windows-original"));
+            await AddWindowsCandidateAsync(candidates, bitmap, "windows-original");
         }
 
         if (settings.EnhancedOcr)
         {
-            candidates.Add(await RecognizeWithWindowsAsync(bitmap, "windows-original"));
+            await AddWindowsCandidateAsync(candidates, bitmap, "windows-original");
 
             using var processed = BuildHighContrastVariant(bitmap);
-            candidates.Add(await RecognizeWithWindowsAsync(processed, "windows-contrast"));
+            await AddWindowsCandidateAsync(candidates, processed, "windows-contrast");
 
             using var scaled = Scale(processed, 3);
-            candidates.Add(await RecognizeWithWindowsAsync(scaled, "windows-contrast-scaled"));
+            await AddWindowsCandidateAsync(candidates, scaled, "windows-contrast-scaled");
+
+            using var stretched = BuildContrastStretchedVariant(bitmap);
+            await AddWindowsCandidateAsync(candidates, stretched, "windows-stretched");
+
+            using var stretchedScaled = ScaleSmooth(stretched, 2);
+            await AddWindowsCandidateAsync(candidates, stretchedScaled, "windows-stretched-scaled");
+
+            using var adaptive = BuildAdaptiveThresholdVariant(bitmap);
+            await AddWindowsCandidateAsync(candidates, adaptive, "windows-adaptive");
+
+            using var adaptiveScaled = Scale(adaptive, 3);
+            await AddWindowsCandidateAsync(candidates, adaptiveScaled, "windows-adaptive-scaled");
 
             using var badge = BuildColoredBadgeVariant(bitmap);
-            candidates.Add(await RecognizeWithWindowsAsync(badge, "windows-badge"));
+            await AddWindowsCandidateAsync(candidates, badge, "windows-badge");
 
             using var badgeScaled = Scale(badge, 4);
-            candidates.Add(await RecognizeWithWindowsAsync(badgeScaled, "windows-badge-scaled"));
+            await AddWindowsCandidateAsync(candidates, badgeScaled, "windows-badge-scaled");
         }
 
         var best = candidates
@@ -102,6 +115,18 @@ internal static class OcrService
             using var processedSmoothScaled = ScaleSmooth(processed, 3);
             candidates.Add(RecognizeTesseractVariant(engine, processedSmoothScaled, PageSegMode.SingleBlock, "tess-contrast-smooth-scaled-block"));
 
+            using var stretched = BuildContrastStretchedVariant(bitmap);
+            using var stretchedScaled = ScaleSmooth(stretched, 3);
+            candidates.Add(RecognizeTesseractVariant(engine, stretchedScaled, PageSegMode.SparseText, "tess-stretched-scaled-sparse"));
+            candidates.Add(RecognizeTesseractVariant(engine, stretchedScaled, PageSegMode.SingleBlock, "tess-stretched-scaled-block"));
+            candidates.Add(RecognizeTesseractVariant(engine, stretchedScaled, PageSegMode.SingleLine, "tess-stretched-scaled-line"));
+
+            using var adaptive = BuildAdaptiveThresholdVariant(bitmap);
+            using var adaptiveScaled = Scale(adaptive, 3);
+            candidates.Add(RecognizeTesseractVariant(engine, adaptiveScaled, PageSegMode.SparseText, "tess-adaptive-scaled-sparse"));
+            candidates.Add(RecognizeTesseractVariant(engine, adaptiveScaled, PageSegMode.SingleBlock, "tess-adaptive-scaled-block"));
+            candidates.Add(RecognizeTesseractVariant(engine, adaptiveScaled, PageSegMode.SingleLine, "tess-adaptive-scaled-line"));
+
             using var badge = BuildColoredBadgeVariant(bitmap);
             using var badgeScaled = Scale(badge, 4);
             candidates.Add(RecognizeTesseractVariant(engine, badgeScaled, PageSegMode.SingleBlock, "tess-badge-scaled-block"));
@@ -130,6 +155,18 @@ internal static class OcrService
         }
 
         return new OcrCandidate(text, confidence, source);
+    }
+
+    private static async Task AddWindowsCandidateAsync(List<OcrCandidate> candidates, Bitmap bitmap, string source)
+    {
+        try
+        {
+            candidates.Add(await RecognizeWithWindowsAsync(bitmap, source));
+        }
+        catch (Exception ex)
+        {
+            Logger.Error($"Windows OCR pass '{source}' failed.", ex);
+        }
     }
 
     private static async Task<OcrCandidate> RecognizeWithWindowsAsync(Bitmap bitmap, string source)
@@ -306,8 +343,6 @@ internal static class OcrService
     private static string NormalizeOcrToken(string text)
     {
         return text.Trim()
-            .Replace("|", "I")
-            .Replace("`", "'")
             .Replace("：", ":")
             .Replace("–", "-")
             .Replace("—", "-");
@@ -388,7 +423,7 @@ internal static class OcrService
 
     private static double ScoreOcrCandidate(OcrCandidate candidate)
     {
-        var text = candidate.Text;
+        var text = CleanupCommonOcrText(candidate.Text);
         if (string.IsNullOrWhiteSpace(text))
         {
             return 0;
@@ -409,6 +444,9 @@ internal static class OcrService
         score += Regex.Matches(text, @"(?=\S*[a-z])(?=\S*[A-Z])(?=\S*\d)[A-Za-z0-9`~!@#$%^&*()_\-+=\[\]{}\\|;:'"",.<>/?]{8,}").Count * 55;
         score += Regex.Matches(text, @"\b\d{4}-\d{2}-\d{2}\b").Count * 20;
         score += Regex.Matches(text, @"\b\d{1,5}:\d{1,5}(?::\d{2})?\b").Count * 20;
+        score += Regex.Matches(text, @"\b[A-Z][A-Z0-9_]{2,}\b").Count * 16;
+        score += Regex.Matches(text, @"\b(?:https?://|[a-z0-9.-]+\.[a-z]{2,})(?:\S*)", RegexOptions.IgnoreCase).Count * 30;
+        score += Regex.Matches(text, @"(?:^|\s)[./~]?[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)+").Count * 22;
 
         var shortWordCount = words.Count(word => word.Length <= 2);
         var oneCharWordCount = words.Count(word => word.Length == 1);
@@ -422,6 +460,8 @@ internal static class OcrService
         score -= oneCharWordCount * 15;
         score -= consonantBlobCount * 10;
         score -= Regex.Matches(text, @"\b[a-zA-Z]{1,2}\s+[a-zA-Z]{1,2}\b").Count * 12;
+        score -= Regex.Matches(text, @"[^\w\s]{5,}").Count * 18;
+        score -= Regex.Matches(text, @"(.)\1{6,}").Count * 18;
         score -= text.Count(ch => ch is 'ï' or '¿' or '½' or 'Â' or '©' or '§') * 25;
 
         if (averageWordLength > 0 && averageWordLength < 3.2 && words.Count > 4)
@@ -558,6 +598,90 @@ internal static class OcrService
         return bitmap;
     }
 
+    private static Bitmap BuildContrastStretchedVariant(Bitmap source)
+    {
+        var bitmap = new Bitmap(source.Width, source.Height, PixelFormat.Format24bppRgb);
+        var invert = AverageBrightness(source) < 110;
+        var histogram = new int[256];
+
+        for (var y = 0; y < source.Height; y++)
+        {
+            for (var x = 0; x < source.Width; x++)
+            {
+                var brightness = GetBrightness(source.GetPixel(x, y), invert);
+                histogram[brightness]++;
+            }
+        }
+
+        var total = Math.Max(1, source.Width * source.Height);
+        var low = PercentileFromHistogram(histogram, total, 0.02);
+        var high = PercentileFromHistogram(histogram, total, 0.98);
+        if (high - low < 30)
+        {
+            low = Math.Max(0, low - 30);
+            high = Math.Min(255, high + 30);
+        }
+
+        var range = Math.Max(1, high - low);
+        for (var y = 0; y < source.Height; y++)
+        {
+            for (var x = 0; x < source.Width; x++)
+            {
+                var brightness = GetBrightness(source.GetPixel(x, y), invert);
+                var value = Math.Clamp((brightness - low) * 255 / range, 0, 255);
+                bitmap.SetPixel(x, y, Color.FromArgb(value, value, value));
+            }
+        }
+
+        return bitmap;
+    }
+
+    private static Bitmap BuildAdaptiveThresholdVariant(Bitmap source)
+    {
+        var width = source.Width;
+        var height = source.Height;
+        var bitmap = new Bitmap(width, height, PixelFormat.Format24bppRgb);
+        var invert = AverageBrightness(source) < 110;
+        var brightness = new int[width * height];
+        var integral = new long[(width + 1) * (height + 1)];
+
+        for (var y = 0; y < height; y++)
+        {
+            long rowTotal = 0;
+            for (var x = 0; x < width; x++)
+            {
+                var value = GetBrightness(source.GetPixel(x, y), invert);
+                brightness[(y * width) + x] = value;
+                rowTotal += value;
+                integral[((y + 1) * (width + 1)) + x + 1] = integral[(y * (width + 1)) + x + 1] + rowTotal;
+            }
+        }
+
+        var radius = Math.Clamp(Math.Min(width, height) / 14, 10, 32);
+        const int bias = 8;
+
+        for (var y = 0; y < height; y++)
+        {
+            var top = Math.Max(0, y - radius);
+            var bottom = Math.Min(height - 1, y + radius);
+            for (var x = 0; x < width; x++)
+            {
+                var left = Math.Max(0, x - radius);
+                var right = Math.Min(width - 1, x + radius);
+                var area = (right - left + 1) * (bottom - top + 1);
+                var sum = integral[((bottom + 1) * (width + 1)) + right + 1]
+                    - integral[(top * (width + 1)) + right + 1]
+                    - integral[((bottom + 1) * (width + 1)) + left]
+                    + integral[(top * (width + 1)) + left];
+                var localMean = (int)(sum / area);
+                var value = brightness[(y * width) + x] < localMean - bias ? 0 : 255;
+                bitmap.SetPixel(x, y, Color.FromArgb(value, value, value));
+            }
+        }
+
+        return bitmap;
+    }
+
     private static Bitmap BuildColoredBadgeVariant(Bitmap source)
     {
         var bitmap = new Bitmap(source.Width, source.Height, PixelFormat.Format24bppRgb);
@@ -645,6 +769,61 @@ internal static class OcrService
         }
 
         return samples == 0 ? 255 : (int)(total / samples);
+    }
+
+    private static int GetBrightness(Color color, bool invert)
+    {
+        var brightness = (int)((color.R * 0.299) + (color.G * 0.587) + (color.B * 0.114));
+        return invert ? 255 - brightness : brightness;
+    }
+
+    private static int PercentileFromHistogram(int[] histogram, int total, double percentile)
+    {
+        var target = Math.Clamp((int)Math.Round(total * percentile), 0, total - 1);
+        var cumulative = 0;
+        for (var i = 0; i < histogram.Length; i++)
+        {
+            cumulative += histogram[i];
+            if (cumulative > target)
+            {
+                return i;
+            }
+        }
+
+        return histogram.Length - 1;
+    }
+
+    private static Bitmap AddQuietBorder(Bitmap source, int border)
+    {
+        var bitmap = new Bitmap(source.Width + (border * 2), source.Height + (border * 2), PixelFormat.Format24bppRgb);
+        using var graphics = Graphics.FromImage(bitmap);
+        graphics.Clear(EstimateBackgroundColor(source));
+        graphics.DrawImageUnscaled(source, border, border);
+        return bitmap;
+    }
+
+    private static Color EstimateBackgroundColor(Bitmap source)
+    {
+        var points = new[]
+        {
+            new Point(0, 0),
+            new Point(source.Width - 1, 0),
+            new Point(0, source.Height - 1),
+            new Point(source.Width - 1, source.Height - 1)
+        };
+
+        var red = 0;
+        var green = 0;
+        var blue = 0;
+        foreach (var point in points)
+        {
+            var color = source.GetPixel(point.X, point.Y);
+            red += color.R;
+            green += color.G;
+            blue += color.B;
+        }
+
+        return Color.FromArgb(red / points.Length, green / points.Length, blue / points.Length);
     }
 
     private static Bitmap Scale(Bitmap source, int factor)

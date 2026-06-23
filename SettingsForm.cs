@@ -114,7 +114,7 @@ internal sealed class SettingsForm : Form
         _toolTip.SetToolTip(_keyDelay, "Use lower values for speed. Increase this if a remote console drops or reorders characters.");
         _toolTip.SetToolTip(_startDelay, "Waits after selecting the target before typing begins.");
         _toolTip.SetToolTip(_ocrCleanup, "Code mode repairs common OCR spacing in environment variables such as DATABASE_URL.");
-        _toolTip.SetToolTip(_enhancedOcr, "Runs extra OCR passes for small UI text, table columns, colored status pills, times, and ports.");
+        _toolTip.SetToolTip(_enhancedOcr, "Runs extra OCR passes for small UI text, low contrast, table columns, colored status pills, times, and ports.");
         _toolTip.SetToolTip(_startAsAdmin, "Relaunches with UAC elevation when TextCrate starts. Useful for typing into administrator windows.");
         _toolTip.SetToolTip(_confirmOver, "TextCrate asks before typing clipboard text longer than this limit.");
         _toolTip.SetToolTip(_pasteHotKey.Key, "Press a key here. Backspace clears the hotkey.");
@@ -191,7 +191,7 @@ internal sealed class SettingsForm : Form
         table.SetColumnSpan(_enhancedOcr, 2);
 
         AddSubheading(page, "How it works", 186);
-        AddInfo(page, "TextCrate captures only the selected screen area, runs bundled Tesseract OCR first, then tries Windows OCR and extra image passes when enhanced OCR is enabled. It scores the results and copies the best text to your clipboard.", 214, 570);
+        AddInfo(page, "TextCrate captures only the selected screen area, runs bundled Tesseract OCR first, then tries Windows OCR, contrast-stretched, adaptive threshold, and colored-status passes when enhanced OCR is enabled. It scores the results and copies the best text to your clipboard.", 214, 570);
 
         AddSubheading(page, "Practical limits", 308);
         AddInfo(page, "Small fonts, low contrast, anti-aliased browser text, and colored status pills can still be misread. Tight selections usually improve accuracy. Passwords and tokens keeps full QWERTY symbols and removes spaces; code mode is best for .env keys, URLs, ports, and timestamps.", 336, 570);
