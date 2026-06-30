@@ -10,3 +10,6 @@ installer/*.generated.wxs
 *.user
 *.log
 .vs/
+node_modules/
+cloudflare/long-text-relay/.wrangler/
+cloudflare/long-text-relay/.dev.vars

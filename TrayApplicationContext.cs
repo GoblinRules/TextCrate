@@ -46,7 +46,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ForeColor = palette.Text,
             Renderer = new ThemedMenuRenderer(palette)
         };
-        menu.Items.Add("Paste clipboard to selected target", null, (_, _) => StartTargetPaste());
+        menu.Items.Add("Paste clipboard to selected target", null, async (_, _) => await StartTargetPasteAsync());
         menu.Items.Add("Read screen area to clipboard", null, async (_, _) => await ReadScreenAreaAsync());
         menu.Items.Add(new ToolStripSeparator());
         var elevated = ElevationService.IsAdministrator();
@@ -63,11 +63,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
     {
         if (e.Button == MouseButtons.Left)
         {
-            StartTargetPaste();
+            _ = StartTargetPasteAsync();
         }
     }
 
-    private void StartTargetPaste()
+    private async Task StartTargetPasteAsync()
     {
         if (_busy)
         {
@@ -78,6 +78,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         BeginBusy("TextCrate: preparing paste");
 
         if (!TryGetClipboardText(out var text))
+        {
+            EndBusy();
+            return;
+        }
+
+        text = await PrepareRelayTextAsync(text);
+        if (string.IsNullOrEmpty(text))
         {
             EndBusy();
             return;
@@ -118,7 +125,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         StartTypingThread(text, busyAlreadyStarted: true);
     }
 
-    private void StartTypingActiveWindow()
+    private async Task StartTypingActiveWindowAsync()
     {
         if (_busy)
         {
@@ -131,12 +138,60 @@ internal sealed class TrayApplicationContext : ApplicationContext
             return;
         }
 
-        if (!ConfirmTyping(text, Native.GetWindowTitle(Native.GetForegroundWindow())))
+        BeginBusy("TextCrate: preparing paste");
+        text = await PrepareRelayTextAsync(text);
+        if (string.IsNullOrEmpty(text))
         {
+            EndBusy();
             return;
         }
 
-        StartTypingThread(text, busyAlreadyStarted: false);
+        if (!ConfirmTyping(text, Native.GetWindowTitle(Native.GetForegroundWindow())))
+        {
+            EndBusy();
+            return;
+        }
+
+        StartTypingThread(text, busyAlreadyStarted: true);
+    }
+
+    private async Task<string> PrepareRelayTextAsync(string text)
+    {
+        if (!LongTextRelayService.ShouldOffer(text, _settings))
+        {
+            return text;
+        }
+
+        StopActivityIndicator();
+        using var prompt = new LongTextRelayPromptForm(_settings, text.Length);
+        if (prompt.ShowDialog() != DialogResult.OK)
+        {
+            StartActivityIndicator();
+            return text;
+        }
+
+        StartActivityIndicator();
+        SetNotifyText("TextCrate: uploading encrypted relay");
+        try
+        {
+            using var uploadCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var relay = await LongTextRelayService.CreateAsync(
+                text,
+                new LongTextRelayOptions(
+                    _settings.LongTextRelayEndpoint,
+                    prompt.ExpiryMinutes,
+                    prompt.BurnAfterRead,
+                    prompt.Password),
+                uploadCancellation.Token);
+            Logger.Info($"Created Long Text Relay URL for {text.Length} characters.");
+            return relay.Url;
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Long Text Relay upload failed.", ex);
+            MessageBox.Show("Long Text Relay upload failed. TextCrate will not upload or type anything.", "TextCrate Long Text Relay", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return string.Empty;
+        }
     }
 
     private void StartTypingThread(string text, bool busyAlreadyStarted)
@@ -319,11 +374,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 }
                 else if (_settings.HotKeyMode == HotKeyMode.JustStartTyping)
                 {
-                    StartTypingActiveWindow();
+                    _ = StartTypingActiveWindowAsync();
                 }
                 else
                 {
-                    StartTargetPaste();
+                    _ = StartTargetPasteAsync();
                 }
             }, null);
         });

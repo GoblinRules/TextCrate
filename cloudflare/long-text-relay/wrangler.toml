@@ -1,0 +1,16 @@
+name = "textcrate-long-text-relay"
+main = "src/index.ts"
+compatibility_date = "2026-06-29"
+workers_dev = false
+
+routes = [{ pattern = "qz9v4k.ghostkernel.cc", custom_domain = true }]
+
+[[kv_namespaces]]
+binding = "RELAY_KV"
+id = "c69b5d1d71a24a5c89b057baadccab47"
+preview_id = "b109661936544815b3e87a28ca960c15"
+
+[vars]
+MAX_CIPHERTEXT_BYTES = "262144"
+RATE_LIMIT_PER_MINUTE = "30"
+RATE_LIMIT_PER_HOUR = "300"

@@ -1,0 +1,101 @@
+import { describe, expect, it } from 'vitest';
+import worker, { Env } from '../src/index';
+
+class MemoryKV {
+  private values = new Map<string, { value: string; expiresAt?: number }>();
+
+  async get(key: string, type?: 'json'): Promise<any> {
+    const item = this.values.get(key);
+    if (!item || (item.expiresAt && item.expiresAt <= Date.now())) return null;
+    return type === 'json' ? JSON.parse(item.value) : item.value;
+  }
+
+  async put(key: string, value: string, options?: { expirationTtl?: number }): Promise<void> {
+    this.values.set(key, {
+      value,
+      expiresAt: options?.expirationTtl ? Date.now() + options.expirationTtl * 1000 : undefined
+    });
+  }
+
+  async delete(key: string): Promise<void> {
+    this.values.delete(key);
+  }
+}
+
+const token = 'abcdefghijklmnopqrstuvwxyzABCDEF';
+const burnToken = 'burnburnburnburnburnburnburnburn';
+const validUpload = {
+  token,
+  ciphertext: 'YWJjZGVm',
+  nonce: 'YWJjZGVmZ2hpamts',
+  expiryMinutes: 5,
+  burnAfterRead: true,
+  passwordProtected: false,
+  kdfIterations: 310000,
+  burnToken
+};
+
+function env(): Env {
+  return {
+    RELAY_KV: new MemoryKV() as unknown as KVNamespace,
+    MAX_CIPHERTEXT_BYTES: '262144',
+    RATE_LIMIT_PER_MINUTE: '100',
+    RATE_LIMIT_PER_HOUR: '1000'
+  };
+}
+
+async function request(path: string, init?: RequestInit, e = env()) {
+  return worker.fetch(new Request('https://t.example' + path, init), e);
+}
+
+describe('Long Text Relay Worker', () => {
+  it('rejects expiry outside 1 minute to 1 hour', async () => {
+    const res = await request('/.gk7/store', {
+      method: 'POST',
+      body: JSON.stringify({ ...validUpload, expiryMinutes: 90 })
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('stores and retrieves encrypted metadata without plaintext', async () => {
+    const e = env();
+    const store = await request('/.gk7/store', { method: 'POST', body: JSON.stringify(validUpload) }, e);
+    expect(store.status).toBe(200);
+    const item = await request('/.gk7/item/' + token, undefined, e);
+    expect(item.status).toBe(200);
+    const json = await item.json() as any;
+    expect(json.ciphertext).toBe(validUpload.ciphertext);
+    expect(json).not.toHaveProperty('burnToken');
+  });
+
+  it('burns after read only with the burn token', async () => {
+    const e = env();
+    await request('/.gk7/store', { method: 'POST', body: JSON.stringify(validUpload) }, e);
+    const badBurn = await request('/.gk7/burn', { method: 'POST', body: JSON.stringify({ token, burnToken: 'wrong' }) }, e);
+    expect(badBurn.status).toBe(200);
+    expect((await request('/.gk7/item/' + token, undefined, e)).status).toBe(200);
+    await request('/.gk7/burn', { method: 'POST', body: JSON.stringify({ token, burnToken }) }, e);
+    expect((await request('/.gk7/item/' + token, undefined, e)).status).toBe(404);
+  });
+
+  it('stores password-protected items with salt and kdf metadata only', async () => {
+    const e = env();
+    await request('/.gk7/store', {
+      method: 'POST',
+      body: JSON.stringify({ ...validUpload, passwordProtected: true, salt: 'c2FsdHNhbHQ' })
+    }, e);
+    const item = await request('/.gk7/item/' + token, undefined, e);
+    const json = await item.json() as any;
+    expect(json.passwordProtected).toBe(true);
+    expect(json.salt).toBe('c2FsdHNhbHQ');
+    expect(json).not.toHaveProperty('password');
+    expect(json).not.toHaveProperty('burnToken');
+  });
+
+  it('returns generic errors for missing and invalid tokens', async () => {
+    const missing = await request('/.gk7/item/' + token);
+    const invalid = await request('/.gk7/item/not-valid!');
+    expect(missing.status).toBe(404);
+    expect(await missing.text()).toBe(await invalid.text());
+  });
+});

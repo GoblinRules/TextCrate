@@ -1,0 +1,5 @@
+# No secrets are required by default.
+# Create .dev.vars locally only if you add private deployment-specific variables.
+MAX_CIPHERTEXT_BYTES=262144
+RATE_LIMIT_PER_MINUTE=30
+RATE_LIMIT_PER_HOUR=300

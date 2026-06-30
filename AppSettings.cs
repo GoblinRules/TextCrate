@@ -35,6 +35,15 @@ internal enum HotKeyAction
     ReadScreenArea = 1
 }
 
+internal enum LongTextRelayExpiry
+{
+    OneMinute = 1,
+    FiveMinutes = 5,
+    FifteenMinutes = 15,
+    ThirtyMinutes = 30,
+    OneHour = 60
+}
+
 [Flags]
 internal enum HotKeyModifiers
 {
@@ -71,6 +80,12 @@ internal sealed class AppSettings
     public bool ReadHotKeyEnabled { get; set; }
     public string ReadHotKey { get; set; } = "R";
     public HotKeyModifiers ReadHotKeyModifiers { get; set; } = HotKeyModifiers.Alt | HotKeyModifiers.Control;
+    public bool LongTextRelayEnabled { get; set; }
+    public string LongTextRelayEndpoint { get; set; } = string.Empty;
+    public LongTextRelayExpiry LongTextRelayExpiryMinutes { get; set; } = LongTextRelayExpiry.FifteenMinutes;
+    public bool LongTextRelayBurnAfterRead { get; set; } = true;
+    public bool LongTextRelayPromptForPassword { get; set; } = true;
+    public int LongTextRelayOfferOver { get; set; } = 4000;
 
     public static AppSettings Load()
     {

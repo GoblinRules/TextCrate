@@ -15,6 +15,13 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox _confirmLargePaste = new();
     private readonly TextBox _confirmOver = new();
     private readonly CheckBox _enhancedOcr = new();
+    private readonly CheckBox _longTextRelayEnabled = new();
+    private readonly TextBox _longTextRelayEndpoint = new();
+    private readonly ThemedSelect _longTextRelayExpiry = new();
+    private readonly CheckBox _longTextRelayBurnAfterRead = new();
+    private readonly CheckBox _longTextRelayPromptForPassword = new();
+    private readonly TextBox _longTextRelayOfferOver = new();
+    private readonly Button _longTextRelayTest = new();
     private readonly HotKeyControls _pasteHotKey = new("Enable paste hotkey");
     private readonly HotKeyControls _readHotKey = new("Enable read screen hotkey");
     private readonly ToolTip _toolTip = new();
@@ -31,7 +38,7 @@ internal sealed class SettingsForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(700, 700);
+        ClientSize = new Size(760, 720);
         Font = new Font("Segoe UI", 9F);
 
         BuildLayout();
@@ -57,24 +64,24 @@ internal sealed class SettingsForm : Form
             UseMnemonic = false,
             AutoSize = false,
             Location = new Point(24, 56),
-            Size = new Size(620, 24)
+            Size = new Size(690, 24)
         });
 
         var tabs = new FlowLayoutPanel
         {
             Location = new Point(24, 92),
-            Size = new Size(652, 42),
+            Size = new Size(710, 42),
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
             BackColor = Color.Transparent
         };
-        foreach (var tab in new[] { "General", "Paste", "OCR", "Startup", "Hotkeys", "Help & About" })
+        foreach (var tab in new[] { "General", "Paste", "OCR", "Relay", "Startup", "Hotkeys", "Help & About" })
         {
             var button = new Button
             {
                 Text = tab,
                 UseMnemonic = false,
-                Width = tab == "Help & About" ? 118 : 86,
+                Width = tab == "Help & About" ? 118 : 82,
                 Height = 32,
                 Margin = new Padding(0, 0, 8, 0),
                 FlatStyle = FlatStyle.Flat
@@ -88,14 +95,15 @@ internal sealed class SettingsForm : Form
         BuildGeneralPage();
         BuildPastePage();
         BuildOcrPage();
+        BuildRelayPage();
         BuildStartupPage();
         BuildHotkeysPage();
         BuildHelpPage();
 
         var buttons = new FlowLayoutPanel
         {
-            Location = new Point(24, 628),
-            Size = new Size(652, 42),
+            Location = new Point(24, 648),
+            Size = new Size(710, 42),
             FlowDirection = FlowDirection.RightToLeft,
             BackColor = Color.Transparent
         };
@@ -120,6 +128,8 @@ internal sealed class SettingsForm : Form
         _toolTip.SetToolTip(_pasteHotKey.Key, "Press a key here. Backspace clears the hotkey.");
         _toolTip.SetToolTip(_readHotKey.Key, "Press a key here. Backspace clears the hotkey.");
         _toolTip.SetToolTip(_hotKeyMode, "Choose whether the paste hotkey asks for a target first or types into the active window.");
+        _toolTip.SetToolTip(_longTextRelayEndpoint, "Cloudflare Worker endpoint, for example https://<obscure-subdomain>.ghostkernel.cc.");
+        _toolTip.SetToolTip(_longTextRelayOfferOver, "TextCrate offers relay upload when clipboard text is at least this many characters or looks too complex for reliable typing.");
     }
 
     private void BuildGeneralPage()
@@ -197,6 +207,51 @@ internal sealed class SettingsForm : Form
         AddInfo(page, "Small fonts, low contrast, anti-aliased browser text, and colored status pills can still be misread. Tight selections usually improve accuracy. Passwords and tokens keeps full QWERTY symbols and removes spaces; code mode is best for .env keys, URLs, ports, and timestamps.", 336, 570);
     }
 
+    private void BuildRelayPage()
+    {
+        var page = CreatePage("Relay");
+        AddSectionTitle(page, "Long Text Relay", 0);
+        AddInfo(page, "Disabled by default. When enabled, TextCrate can replace a difficult long paste with an encrypted one-time URL. The app encrypts locally before upload; your Cloudflare Worker stores only ciphertext and expiry metadata.", 32, 650);
+
+        var table = CreateTable(page, 108, 7);
+        _longTextRelayEnabled.Text = "Enable Long Text Relay";
+        StyleCheckBox(_longTextRelayEnabled);
+        table.Controls.Add(_longTextRelayEnabled, 0, 0);
+        table.SetColumnSpan(_longTextRelayEnabled, 2);
+
+        AddRow(table, 1, "Backend endpoint", _longTextRelayEndpoint);
+
+        _longTextRelayExpiry.SetOptions(
+            new SelectOption("1 minute", LongTextRelayExpiry.OneMinute),
+            new SelectOption("5 minutes", LongTextRelayExpiry.FiveMinutes),
+            new SelectOption("15 minutes", LongTextRelayExpiry.FifteenMinutes),
+            new SelectOption("30 minutes", LongTextRelayExpiry.ThirtyMinutes),
+            new SelectOption("1 hour", LongTextRelayExpiry.OneHour));
+        AddRow(table, 2, "Default expiry", _longTextRelayExpiry);
+
+        _longTextRelayBurnAfterRead.Text = "Burn after first successful read";
+        StyleCheckBox(_longTextRelayBurnAfterRead);
+        table.Controls.Add(_longTextRelayBurnAfterRead, 0, 3);
+        table.SetColumnSpan(_longTextRelayBurnAfterRead, 2);
+
+        _longTextRelayPromptForPassword.Text = "Prompt for optional password before upload";
+        StyleCheckBox(_longTextRelayPromptForPassword);
+        table.Controls.Add(_longTextRelayPromptForPassword, 0, 4);
+        table.SetColumnSpan(_longTextRelayPromptForPassword, 2);
+
+        AddRow(table, 5, "Offer over characters", _longTextRelayOfferOver);
+
+        _longTextRelayTest.Text = "Test connection";
+        _longTextRelayTest.FlatStyle = FlatStyle.Flat;
+        _longTextRelayTest.Width = 130;
+        _longTextRelayTest.Height = 30;
+        _longTextRelayTest.Click += async (_, _) => await TestLongTextRelayAsync();
+        table.Controls.Add(_longTextRelayTest, 1, 6);
+
+        AddSubheading(page, "Security notes", 366);
+        AddInfo(page, "Cloudflare can see your IP address, timing, ciphertext size, expiry, burn setting, and opaque token path. It cannot see plaintext, URL fragment keys, or passwords. Anyone who has the full link fragment and password can decrypt before expiry.", 394, 650);
+    }
+
     private void BuildStartupPage()
     {
         var page = CreatePage("Startup");
@@ -254,7 +309,7 @@ internal sealed class SettingsForm : Form
         var page = new Panel
         {
             Location = new Point(24, 146),
-            Size = new Size(652, 462),
+            Size = new Size(710, 482),
             BackColor = Color.Transparent,
             Visible = false
         };
@@ -268,7 +323,7 @@ internal sealed class SettingsForm : Form
         var table = new TableLayoutPanel
         {
             Location = new Point(0, y),
-            Size = new Size(624, rowCount * 34),
+            Size = new Size(682, rowCount * 34),
             ColumnCount = 2,
             RowCount = rowCount,
             BackColor = Color.Transparent
@@ -332,7 +387,7 @@ internal sealed class SettingsForm : Form
         control.Dock = DockStyle.None;
         control.Anchor = AnchorStyles.Left | AnchorStyles.Right;
         control.Margin = new Padding(0, 3, 0, 3);
-        control.Width = 396;
+        control.Width = 454;
         if (control is ThemedSelect)
         {
             control.Height = 28;
@@ -409,6 +464,12 @@ internal sealed class SettingsForm : Form
         _confirmOver.Text = Math.Clamp(_settings.ConfirmLargePasteOver, 1, 1000000).ToString();
         _ocrCleanup.SelectedValue = _settings.OcrCleanupMode;
         _enhancedOcr.Checked = _settings.EnhancedOcr;
+        _longTextRelayEnabled.Checked = _settings.LongTextRelayEnabled;
+        _longTextRelayEndpoint.Text = _settings.LongTextRelayEndpoint;
+        _longTextRelayExpiry.SelectedValue = _settings.LongTextRelayExpiryMinutes;
+        _longTextRelayBurnAfterRead.Checked = _settings.LongTextRelayBurnAfterRead;
+        _longTextRelayPromptForPassword.Checked = _settings.LongTextRelayPromptForPassword;
+        _longTextRelayOfferOver.Text = Math.Clamp(_settings.LongTextRelayOfferOver, 250, 1000000).ToString();
         LoadHotKey(_pasteHotKey, _settings.HotKeyEnabled, _settings.HotKey, _settings.HotKeyModifiers);
         LoadHotKey(_readHotKey, _settings.ReadHotKeyEnabled, _settings.ReadHotKey, _settings.ReadHotKeyModifiers);
         _hotKeyMode.SelectedValue = _settings.HotKeyMode;
@@ -427,10 +488,34 @@ internal sealed class SettingsForm : Form
         _settings.ConfirmLargePasteOver = ReadInt(_confirmOver, 500, 1, 1000000);
         _settings.OcrCleanupMode = (OcrCleanupMode)_ocrCleanup.SelectedValue!;
         _settings.EnhancedOcr = _enhancedOcr.Checked;
+        _settings.LongTextRelayEnabled = _longTextRelayEnabled.Checked;
+        _settings.LongTextRelayEndpoint = _longTextRelayEndpoint.Text.Trim();
+        _settings.LongTextRelayExpiryMinutes = (LongTextRelayExpiry)_longTextRelayExpiry.SelectedValue!;
+        _settings.LongTextRelayBurnAfterRead = _longTextRelayBurnAfterRead.Checked;
+        _settings.LongTextRelayPromptForPassword = _longTextRelayPromptForPassword.Checked;
+        _settings.LongTextRelayOfferOver = ReadInt(_longTextRelayOfferOver, 4000, 250, 1000000);
         (_settings.HotKeyEnabled, _settings.HotKey, _settings.HotKeyModifiers) = ReadHotKey(_pasteHotKey);
         (_settings.ReadHotKeyEnabled, _settings.ReadHotKey, _settings.ReadHotKeyModifiers) = ReadHotKey(_readHotKey);
         _settings.HotKeyMode = (HotKeyMode)_hotKeyMode.SelectedValue!;
         _settings.Save();
+    }
+
+    private async Task TestLongTextRelayAsync()
+    {
+        _longTextRelayTest.Enabled = false;
+        try
+        {
+            await LongTextRelayService.TestConnectionAsync(_longTextRelayEndpoint.Text, CancellationToken.None);
+            MessageBox.Show(this, "Long Text Relay backend responded successfully.", "TextCrate Long Text Relay", MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, ex.Message, "TextCrate Long Text Relay", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        finally
+        {
+            _longTextRelayTest.Enabled = true;
+        }
     }
 
     private static void LoadHotKey(HotKeyControls controls, bool enabled, string key, HotKeyModifiers modifiers)
@@ -487,9 +572,10 @@ internal sealed class SettingsForm : Form
         {
             var primary = button.Text == "Save";
             var activeTab = _tabButtons.TryGetValue(_activeTab, out var active) && ReferenceEquals(button, active);
-            button.BackColor = primary || activeTab ? palette.Accent : palette.Surface;
-            button.ForeColor = primary || activeTab ? palette.AccentText : palette.Text;
-            button.FlatAppearance.BorderColor = primary || activeTab ? palette.Accent : palette.Border;
+            var relayTest = ReferenceEquals(button, _longTextRelayTest);
+            button.BackColor = primary || activeTab || relayTest ? palette.Accent : palette.Surface;
+            button.ForeColor = primary || activeTab || relayTest ? palette.AccentText : palette.Text;
+            button.FlatAppearance.BorderColor = primary || activeTab || relayTest ? palette.Accent : palette.Border;
         }
 
         foreach (var selector in AllControls().OfType<ThemedSelect>())

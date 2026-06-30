@@ -7,6 +7,8 @@ It has two core jobs:
 - Type your local clipboard into a selected remote window.
 - Read text from a selected screen region with OCR and copy it back to your clipboard.
 
+It also includes an optional **Long Text Relay** for difficult large pastes. This is disabled by default and only works after you configure your own Cloudflare Worker endpoint.
+
 Website: [ghostkernel.cc](https://ghostkernel.cc)
 
 ## Install
@@ -44,6 +46,28 @@ TextCrate uses bundled Tesseract `tessdata_best` English OCR first, then falls b
 - **Start as administrator when launching**: relaunches with UAC elevation on startup.
 - **Confirm large paste operations**: asks before typing clipboard text over the configured character limit.
 - **Paste hotkey**: default is `Ctrl+Alt+V`, matching the original ClickPaste behavior.
+- **Long Text Relay**: optional encrypted one-time link mode for large text that would be slow or fragile to type into a VM.
+
+## Long Text Relay
+
+Long Text Relay is designed for long snippets, config blocks, or secrets that are awkward to type into a remote VM. When enabled and the clipboard is over the configured threshold, TextCrate offers to upload an encrypted relay item and type only the generated one-time URL into the target.
+
+Privacy/security behavior:
+
+- Disabled by default.
+- Text is encrypted locally before upload with AES-GCM.
+- If a password is entered, TextCrate derives an extra key with PBKDF2-SHA256 before encryption.
+- The Cloudflare Worker stores ciphertext, nonce, optional salt, expiry, burn setting, and minimal metadata only.
+- The decryption key and burn token are placed in the URL fragment, so they are not sent to Cloudflare during normal browser requests.
+- Passwords are never sent to Cloudflare.
+- Links always expire between 1 minute and 1 hour.
+- Burn-after-read is enabled by default. The browser burns the item only after successful local decryption.
+- Cloudflare can see IP address, request timing, ciphertext size, expiry metadata, and the opaque token path. It cannot see plaintext, fragment keys, or passwords.
+- Anyone with the full URL fragment, and the password if one was set, can decrypt the payload before expiry.
+
+The receiving page has a **Copy full text** button after browser-side decryption. It also shows an optional PowerShell helper command that downloads a small auditable helper script, decrypts locally from the full URL fragment, and copies the text to the Windows clipboard.
+
+The Worker implementation and deployment notes live in [`cloudflare/long-text-relay`](cloudflare/long-text-relay).
 
 ## Help
 
@@ -80,6 +104,14 @@ powershell -ExecutionPolicy Bypass -File tools\build-release.ps1
 ```
 
 Artifacts are written to `artifacts/`.
+
+Run Worker tests:
+
+```powershell
+cd cloudflare\long-text-relay
+npm install
+npm test
+```
 
 ## License
 
