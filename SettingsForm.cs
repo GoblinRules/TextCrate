@@ -320,13 +320,16 @@ internal sealed class SettingsForm : Form
         AddInfo(page, $"TextCrate {GetVersion()}\nPublisher: Goblin Rules\nGhost Kernel: https://ghostkernel.cc", 32, 590);
 
         AddSubheading(page, "Quick actions", 112);
-        AddInfo(page, "Left-click tray icon: paste clipboard to a target.\nRight-click tray icon: paste, read screen area, relaunch as administrator, settings, cancel typing, and exit.\nEsc: cancel target or region selection.", 140, 570);
+        AddInfo(page, "Left-click tray icon: paste clipboard to a target.\nRight-click tray icon: paste, upload encrypted relay URL, read screen area, relaunch as administrator, settings, cancel typing, and exit.\nEsc: cancel target or region selection.", 140, 620);
 
-        AddSubheading(page, "Troubleshooting", 254);
-        AddInfo(page, "If text types into the wrong place, use target mode and click directly inside the destination input area.\nIf characters are missed, increase the delay between keys.\nIf OCR misses text, draw a tighter rectangle and keep enhanced OCR enabled.", 282, 590);
+        AddSubheading(page, "Long Text Relay", 238);
+        AddInfo(page, "Relay is disabled by default. When enabled, TextCrate encrypts text locally, uploads ciphertext to the configured backend, and copies or types a one-time URL. Optional short links are easier to type but less private because the backend stores the full decrypt link until expiry.", 266, 620);
+
+        AddSubheading(page, "Troubleshooting", 376);
+        AddInfo(page, "If text types into the wrong place, use target mode and click directly inside the destination input area.\nIf characters are missed, increase the delay between keys.\nIf OCR misses text, draw a tighter rectangle and keep enhanced OCR enabled.", 404, 620);
 
         var openLog = CreateButton("Open Log", false);
-        openLog.Location = new Point(0, 386);
+        openLog.Location = new Point(0, 484);
         openLog.Click += (_, _) => OpenLogFile();
         page.Controls.Add(openLog);
     }

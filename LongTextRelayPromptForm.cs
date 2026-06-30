@@ -13,7 +13,7 @@ internal sealed class LongTextRelayPromptForm : Form
     public int ExpiryMinutes => (int)_expiry.SelectedValue!;
     public bool BurnAfterRead => _burnAfterRead.Checked;
     public string? Password => _usePassword.Checked ? _password.Text : null;
-    public bool UseShortLink => _useShortLink.Visible && _useShortLink.Checked;
+    public bool UseShortLink => _settings.LongTextRelayAllowShortLinks && _useShortLink.Checked;
 
     public LongTextRelayPromptForm(AppSettings settings, int characterCount)
     {
