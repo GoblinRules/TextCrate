@@ -22,6 +22,7 @@ internal sealed class SettingsForm : Form
     private readonly ThemedSelect _longTextRelayExpiry = new();
     private readonly CheckBox _longTextRelayBurnAfterRead = new();
     private readonly CheckBox _longTextRelayPromptForPassword = new();
+    private readonly CheckBox _longTextRelayAllowShortLinks = new();
     private readonly TextBox _longTextRelayOfferOver = new();
     private readonly Button _longTextRelayTest = new();
     private TableLayoutPanel? _longTextRelayTable;
@@ -217,7 +218,7 @@ internal sealed class SettingsForm : Form
         AddSectionTitle(page, "Long Text Relay", 0);
         AddInfo(page, "Disabled by default. When enabled, TextCrate can replace a difficult long paste with an encrypted one-time URL. All relay text is encrypted locally before upload; the backend stores only ciphertext and expiry metadata.", 32, 670);
 
-        var table = CreateTable(page, 112, 8);
+        var table = CreateTable(page, 112, 9);
         _longTextRelayTable = table;
         _longTextRelayEnabled.Text = "Enable Long Text Relay";
         StyleCheckBox(_longTextRelayEnabled);
@@ -260,17 +261,22 @@ internal sealed class SettingsForm : Form
         table.Controls.Add(_longTextRelayPromptForPassword, 0, 5);
         table.SetColumnSpan(_longTextRelayPromptForPassword, 2);
 
-        AddRow(table, 6, "Offer over characters", _longTextRelayOfferOver);
+        _longTextRelayAllowShortLinks.Text = "Offer short links (less private)";
+        StyleCheckBox(_longTextRelayAllowShortLinks);
+        table.Controls.Add(_longTextRelayAllowShortLinks, 0, 6);
+        table.SetColumnSpan(_longTextRelayAllowShortLinks, 2);
+
+        AddRow(table, 7, "Offer over characters", _longTextRelayOfferOver);
 
         _longTextRelayTest.Text = "Test connection";
         _longTextRelayTest.FlatStyle = FlatStyle.Flat;
         _longTextRelayTest.Width = 130;
         _longTextRelayTest.Height = 30;
         _longTextRelayTest.Click += async (_, _) => await TestLongTextRelayAsync();
-        table.Controls.Add(_longTextRelayTest, 1, 7);
+        table.Controls.Add(_longTextRelayTest, 1, 8);
 
-        AddSubheading(page, "Security notes", 414);
-        AddInfo(page, "The built-in Ghost Kernel backend is used unless you enable a custom endpoint. Cloudflare can see your IP address, timing, ciphertext size, expiry, burn setting, and opaque token path. It cannot see plaintext, URL fragment keys, or passwords. Anyone who has the full link fragment and password can decrypt before expiry.", 442, 670);
+        AddSubheading(page, "Security notes", 448);
+        AddInfo(page, "The built-in Ghost Kernel backend is used unless you enable a custom endpoint. Cloudflare can see your IP address, timing, ciphertext size, expiry, burn setting, and opaque token path. It cannot see plaintext, URL fragment keys, or passwords. Short links are less private because the backend stores the full decrypt link until expiry.", 476, 670);
     }
 
     private void BuildStartupPage()
@@ -493,6 +499,7 @@ internal sealed class SettingsForm : Form
         _longTextRelayExpiry.SelectedValue = _settings.LongTextRelayExpiryMinutes;
         _longTextRelayBurnAfterRead.Checked = _settings.LongTextRelayBurnAfterRead;
         _longTextRelayPromptForPassword.Checked = _settings.LongTextRelayPromptForPassword;
+        _longTextRelayAllowShortLinks.Checked = _settings.LongTextRelayAllowShortLinks;
         _longTextRelayOfferOver.Text = Math.Clamp(_settings.LongTextRelayOfferOver, 250, 1000000).ToString();
         UpdateRelayEndpointState();
         LoadHotKey(_pasteHotKey, _settings.HotKeyEnabled, _settings.HotKey, _settings.HotKeyModifiers);
@@ -519,6 +526,7 @@ internal sealed class SettingsForm : Form
         _settings.LongTextRelayExpiryMinutes = (LongTextRelayExpiry)_longTextRelayExpiry.SelectedValue!;
         _settings.LongTextRelayBurnAfterRead = _longTextRelayBurnAfterRead.Checked;
         _settings.LongTextRelayPromptForPassword = _longTextRelayPromptForPassword.Checked;
+        _settings.LongTextRelayAllowShortLinks = _longTextRelayAllowShortLinks.Checked;
         _settings.LongTextRelayOfferOver = ReadInt(_longTextRelayOfferOver, 4000, 250, 1000000);
         (_settings.HotKeyEnabled, _settings.HotKey, _settings.HotKeyModifiers) = ReadHotKey(_pasteHotKey);
         (_settings.ReadHotKeyEnabled, _settings.ReadHotKey, _settings.ReadHotKeyModifiers) = ReadHotKey(_readHotKey);

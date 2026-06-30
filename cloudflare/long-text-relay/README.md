@@ -38,6 +38,14 @@ https://<obscure-subdomain>.ghostkernel.cc/x/<high-entropy-token>#<key>
 
 The `/x/` path and token are non-enumerable. Avoid obvious subdomains or paths such as `paste`, `clip`, `clipboard`, `share`, or `relay`.
 
+Optional short links use:
+
+```text
+https://<obscure-subdomain>.ghostkernel.cc/s/<short-code>
+```
+
+Short links are a convenience tradeoff. They store the full decrypt URL, including the fragment key, in KV until expiry so the backend can redirect to it. Keep this mode disabled unless shorter URLs are more important than the default zero-knowledge backend behavior.
+
 ## KV
 
 KV is used because relay items are short-to-medium text snippets and KV supports TTL-based expiry. R2 is unnecessary unless you want much larger payloads later.

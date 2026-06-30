@@ -29,7 +29,18 @@ type UploadRequest = {
   burnTokenHash?: string;
 };
 
+type ShortLink = {
+  url: string;
+  expiresAt: number;
+};
+
+type ShortenRequest = {
+  url?: string;
+  expiryMinutes?: number;
+};
+
 const TOKEN_RE = /^[A-Za-z0-9_-]{20,96}$/;
+const SHORT_RE = /^[A-Za-z0-9_-]{8,32}$/;
 const B64URL_RE = /^[A-Za-z0-9_-]+$/;
 const GENERIC_UNAVAILABLE = 'This link is expired, burned, unavailable, or invalid.';
 
@@ -45,6 +56,10 @@ export default {
         return await handleStore(request, env);
       }
 
+      if (request.method === 'POST' && url.pathname === '/.gk7/shorten') {
+        return await handleShorten(request, env, url.origin);
+      }
+
       if (request.method === 'GET' && url.pathname.startsWith('/.gk7/item/')) {
         return await handleItem(url.pathname.slice('/.gk7/item/'.length), env);
       }
@@ -57,12 +72,61 @@ export default {
         return html(receiverPage(url.pathname.slice('/x/'.length)));
       }
 
+      if (request.method === 'GET' && url.pathname.startsWith('/s/')) {
+        return await handleShortLink(url.pathname.slice('/s/'.length), env);
+      }
+
       return new Response('Not found', { status: 404 });
     } catch {
       return json({ error: 'Request failed.' }, 400);
     }
   }
 };
+
+async function handleShorten(request: Request, env: Env, origin: string): Promise<Response> {
+  if (!await allowRequest(request, env)) {
+    return json({ error: 'Too many requests.' }, 429);
+  }
+
+  const body = await request.json<ShortenRequest>();
+  if (typeof body.url !== 'string' || typeof body.expiryMinutes !== 'number') {
+    return json({ error: 'Invalid request.' }, 400);
+  }
+
+  const target = new URL(body.url);
+  if (target.origin !== origin || !target.pathname.startsWith('/x/') || target.hash.length < 8) {
+    return json({ error: 'Invalid request.' }, 400);
+  }
+
+  const expiryMinutes = Math.max(1, Math.min(60, Math.floor(body.expiryMinutes)));
+  const code = base64Url(crypto.getRandomValues(new Uint8Array(8)));
+  const expiresAt = Date.now() + expiryMinutes * 60_000;
+  await env.RELAY_KV.put(shortKey(code), JSON.stringify({ url: target.toString(), expiresAt } satisfies ShortLink), {
+    expirationTtl: expiryMinutes * 60
+  });
+
+  return json({ url: `${origin}/s/${code}`, expiresAt });
+}
+
+async function handleShortLink(code: string, env: Env): Promise<Response> {
+  if (!SHORT_RE.test(code)) {
+    return unavailable();
+  }
+
+  const item = await env.RELAY_KV.get(shortKey(code), 'json') as ShortLink | null;
+  if (!item || item.expiresAt <= Date.now()) {
+    await env.RELAY_KV.delete(shortKey(code));
+    return unavailable();
+  }
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      location: item.url,
+      'cache-control': 'no-store'
+    }
+  });
+}
 
 async function handleStore(request: Request, env: Env): Promise<Response> {
   if (!await allowRequest(request, env)) {
@@ -200,6 +264,10 @@ function base64Url(bytes: Uint8Array): string {
 
 function itemKey(token: string): string {
   return `i:${token}`;
+}
+
+function shortKey(code: string): string {
+  return `s:${code}`;
 }
 
 function maxCiphertextBytes(env: Env): number {

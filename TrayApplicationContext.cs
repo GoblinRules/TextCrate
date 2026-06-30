@@ -184,6 +184,17 @@ internal sealed class TrayApplicationContext : ApplicationContext
                     prompt.BurnAfterRead,
                     prompt.Password),
                 uploadCancellation.Token);
+            if (prompt.UseShortLink)
+            {
+                relay = relay with
+                {
+                    Url = await LongTextRelayService.CreateShortLinkAsync(
+                        LongTextRelayService.GetEndpoint(_settings),
+                        relay.Url,
+                        prompt.ExpiryMinutes,
+                        uploadCancellation.Token)
+                };
+            }
             Logger.Info($"Created Long Text Relay URL for {text.Length} characters.");
             return relay.Url;
         }
@@ -237,6 +248,17 @@ internal sealed class TrayApplicationContext : ApplicationContext
                     prompt.BurnAfterRead,
                     prompt.Password),
                 uploadCancellation.Token);
+            if (prompt.UseShortLink)
+            {
+                relay = relay with
+                {
+                    Url = await LongTextRelayService.CreateShortLinkAsync(
+                        LongTextRelayService.GetEndpoint(_settings),
+                        relay.Url,
+                        prompt.ExpiryMinutes,
+                        uploadCancellation.Token)
+                };
+            }
             Clipboard.SetText(relay.Url);
             Logger.Info($"Created Long Text Relay URL for {text.Length} characters and copied URL to clipboard.");
             if (_settings.ShowNotifications)

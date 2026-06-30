@@ -115,6 +115,23 @@ internal static class LongTextRelayService
         }
     }
 
+    public static async Task<string> CreateShortLinkAsync(string endpoint, string relayUrl, int expiryMinutes, CancellationToken cancellationToken)
+    {
+        using var response = await Http.PostAsJsonAsync(
+            $"{NormalizeEndpoint(endpoint)}/.gk7/shorten",
+            new ShortenRequest(relayUrl, Math.Clamp(expiryMinutes, 1, 60)),
+            cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException(response.StatusCode == HttpStatusCode.TooManyRequests
+                ? "Long Text Relay short links are rate limited. Try again later."
+                : "Long Text Relay short-link creation failed.");
+        }
+
+        var result = await response.Content.ReadFromJsonAsync<ShortenResponse>(cancellationToken: cancellationToken);
+        return result?.Url ?? throw new InvalidOperationException("Long Text Relay short-link response was invalid.");
+    }
+
     public static async Task TestConnectionAsync(string endpoint, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(endpoint))
@@ -189,4 +206,10 @@ internal static class LongTextRelayService
         [property: JsonPropertyName("passwordProtected")] bool PasswordProtected,
         [property: JsonPropertyName("kdfIterations")] int KdfIterations,
         [property: JsonPropertyName("burnTokenHash")] string BurnTokenHash);
+
+    private sealed record ShortenRequest(
+        [property: JsonPropertyName("url")] string Url,
+        [property: JsonPropertyName("expiryMinutes")] int ExpiryMinutes);
+
+    private sealed record ShortenResponse([property: JsonPropertyName("url")] string Url);
 }

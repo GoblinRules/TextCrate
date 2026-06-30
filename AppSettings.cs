@@ -88,6 +88,7 @@ internal sealed class AppSettings
     public LongTextRelayExpiry LongTextRelayExpiryMinutes { get; set; } = LongTextRelayExpiry.FifteenMinutes;
     public bool LongTextRelayBurnAfterRead { get; set; } = true;
     public bool LongTextRelayPromptForPassword { get; set; } = true;
+    public bool LongTextRelayAllowShortLinks { get; set; }
     public int LongTextRelayOfferOver { get; set; } = 4000;
 
     public static AppSettings Load()

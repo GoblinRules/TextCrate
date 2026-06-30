@@ -103,6 +103,30 @@ describe('Long Text Relay Worker', () => {
     expect(json).not.toHaveProperty('burnToken');
   });
 
+  it('creates short links that redirect to the full decrypt URL', async () => {
+    const e = env();
+    const fullUrl = `https://t.example/x/${token}#abcdefghijklmnopqrstuv`;
+    const shorten = await request('/.gk7/shorten', {
+      method: 'POST',
+      body: JSON.stringify({ url: fullUrl, expiryMinutes: 5 })
+    }, e);
+    expect(shorten.status).toBe(200);
+    const json = await shorten.json() as any;
+    expect(json.url).toMatch(/^https:\/\/t\.example\/s\/[A-Za-z0-9_-]{8,32}$/);
+
+    const redirect = await request(new URL(json.url).pathname, undefined, e);
+    expect(redirect.status).toBe(302);
+    expect(redirect.headers.get('location')).toBe(fullUrl);
+  });
+
+  it('rejects short links for external origins', async () => {
+    const res = await request('/.gk7/shorten', {
+      method: 'POST',
+      body: JSON.stringify({ url: 'https://example.com/x/token#key', expiryMinutes: 5 })
+    });
+    expect(res.status).toBe(400);
+  });
+
   it('returns generic errors for missing and invalid tokens', async () => {
     const missing = await request('/.gk7/item/' + token);
     const invalid = await request('/.gk7/item/not-valid!');

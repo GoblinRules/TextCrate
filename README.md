@@ -58,6 +58,7 @@ Privacy/security behavior:
 - Disabled by default.
 - Built-in endpoint: `https://qz9v4k.ghostkernel.cc`.
 - Custom endpoint is optional in Settings.
+- Optional short links can be enabled in Settings. They are less private because the backend stores the full decrypt link until expiry.
 - Text is encrypted locally before upload with AES-GCM.
 - If a password is entered, TextCrate derives an extra key with PBKDF2-SHA256 before encryption.
 - The Cloudflare Worker stores ciphertext, nonce, optional salt, expiry, burn setting, and minimal metadata only.

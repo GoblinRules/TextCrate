@@ -7,10 +7,13 @@ internal sealed class LongTextRelayPromptForm : Form
     private readonly ThemedSelect _expiry = new();
     private readonly CheckBox _usePassword = new();
     private readonly TextBox _password = new();
+    private readonly CheckBox _useShortLink = new();
+    private readonly Label _shortLinkWarning = new();
 
     public int ExpiryMinutes => (int)_expiry.SelectedValue!;
     public bool BurnAfterRead => _burnAfterRead.Checked;
     public string? Password => _usePassword.Checked ? _password.Text : null;
+    public bool UseShortLink => _useShortLink.Visible && _useShortLink.Checked;
 
     public LongTextRelayPromptForm(AppSettings settings, int characterCount)
     {
@@ -21,7 +24,7 @@ internal sealed class LongTextRelayPromptForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(560, 360);
+        ClientSize = new Size(600, settings.LongTextRelayAllowShortLinks ? 430 : 360);
         Font = new Font("Segoe UI", 9F);
         TopMost = true;
         ShowInTaskbar = true;
@@ -82,10 +85,26 @@ internal sealed class LongTextRelayPromptForm : Form
         _password.Enabled = _usePassword.Checked;
         AddRow("Password", _password, 278);
 
+        var buttonY = 316;
+        if (_settings.LongTextRelayAllowShortLinks)
+        {
+            _useShortLink.Text = "Use short link";
+            _useShortLink.AutoSize = true;
+            _useShortLink.Location = new Point(148, 314);
+            Controls.Add(_useShortLink);
+
+            _shortLinkWarning.Text = "Warning: short links store the full decrypt link on the backend until expiry, so the backend can recover the decrypt link.";
+            _shortLinkWarning.AutoSize = false;
+            _shortLinkWarning.Location = new Point(148, 342);
+            _shortLinkWarning.Size = new Size(390, 42);
+            Controls.Add(_shortLinkWarning);
+            buttonY = 388;
+        }
+
         var buttons = new FlowLayoutPanel
         {
             FlowDirection = FlowDirection.RightToLeft,
-            Location = new Point(282, 316),
+            Location = new Point(306, buttonY),
             Size = new Size(252, 36)
         };
         buttons.Controls.Add(CreateButton("Upload", true));
@@ -142,6 +161,7 @@ internal sealed class LongTextRelayPromptForm : Form
         {
             checkBox.ForeColor = palette.Text;
         }
+        _shortLinkWarning.ForeColor = palette.MutedText;
 
         _expiry.SetTheme(palette);
         foreach (var button in Controls.OfType<FlowLayoutPanel>().SelectMany(static p => p.Controls.OfType<Button>()))
