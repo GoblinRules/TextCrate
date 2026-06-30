@@ -61,10 +61,10 @@ internal static class LongTextRelayService
         var tokenBytes = RandomNumberGenerator.GetBytes(TokenBytes);
         var masterKey = RandomNumberGenerator.GetBytes(KeyBytes);
         var nonce = RandomNumberGenerator.GetBytes(NonceBytes);
-        var burnToken = RandomNumberGenerator.GetBytes(KeyBytes);
         var passwordProtected = !string.IsNullOrEmpty(options.Password);
         var salt = passwordProtected ? RandomNumberGenerator.GetBytes(SaltBytes) : Array.Empty<byte>();
         var finalKey = DeriveContentKey(masterKey, salt, options.Password);
+        var burnTokenHash = DeriveBurnTokenHash(masterKey);
         var ciphertext = new byte[plaintext.Length + TagBytes];
 
         try
@@ -85,7 +85,7 @@ internal static class LongTextRelayService
                 options.BurnAfterRead,
                 passwordProtected,
                 Pbkdf2Iterations,
-                Base64Url.Encode(burnToken));
+                Base64Url.Encode(burnTokenHash));
 
             using var response = await Http.PostAsJsonAsync($"{endpoint}/.gk7/store", payload, cancellationToken);
             if (!response.IsSuccessStatusCode)
@@ -95,7 +95,7 @@ internal static class LongTextRelayService
                     : "Long Text Relay upload failed.");
             }
 
-            var keyFragment = $"{Uri.EscapeDataString(Base64Url.Encode(masterKey))}.{Uri.EscapeDataString(Base64Url.Encode(burnToken))}";
+            var keyFragment = Uri.EscapeDataString(Base64Url.Encode(masterKey));
             var relayUrl = $"{endpoint}/x/{token}#{keyFragment}";
             var helper = $"Open the link and press Copy full text. PowerShell cannot decrypt this with irm alone because the key is kept in the URL fragment and is never sent to Cloudflare.";
             return new LongTextRelayResult(relayUrl, helper);
@@ -105,9 +105,9 @@ internal static class LongTextRelayService
             CryptographicOperations.ZeroMemory(plaintext);
             CryptographicOperations.ZeroMemory(masterKey);
             CryptographicOperations.ZeroMemory(finalKey);
+            CryptographicOperations.ZeroMemory(burnTokenHash);
             CryptographicOperations.ZeroMemory(tokenBytes);
             CryptographicOperations.ZeroMemory(nonce);
-            CryptographicOperations.ZeroMemory(burnToken);
             if (salt.Length > 0)
             {
                 CryptographicOperations.ZeroMemory(salt);
@@ -158,6 +158,22 @@ internal static class LongTextRelayService
         }
     }
 
+    public static byte[] DeriveBurnTokenHash(byte[] masterKey)
+    {
+        var prefix = Encoding.UTF8.GetBytes("TextCrate burn token v1");
+        var material = new byte[prefix.Length + masterKey.Length];
+        Buffer.BlockCopy(prefix, 0, material, 0, prefix.Length);
+        Buffer.BlockCopy(masterKey, 0, material, prefix.Length, masterKey.Length);
+        try
+        {
+            return SHA256.HashData(material);
+        }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(material);
+        }
+    }
+
     private static string NormalizeEndpoint(string endpoint)
     {
         return endpoint.Trim().TrimEnd('/');
@@ -172,5 +188,5 @@ internal static class LongTextRelayService
         [property: JsonPropertyName("burnAfterRead")] bool BurnAfterRead,
         [property: JsonPropertyName("passwordProtected")] bool PasswordProtected,
         [property: JsonPropertyName("kdfIterations")] int KdfIterations,
-        [property: JsonPropertyName("burnToken")] string BurnToken);
+        [property: JsonPropertyName("burnTokenHash")] string BurnTokenHash);
 }

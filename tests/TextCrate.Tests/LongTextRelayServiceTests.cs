@@ -93,4 +93,15 @@ public sealed class LongTextRelayServiceTests
         Assert.DoesNotContain("=", encoded);
         Assert.Equal(bytes, decoded);
     }
+
+    [Fact]
+    public void BurnTokenHashDerivationIsDeterministicForSameKey()
+    {
+        var key = Enumerable.Range(0, 16).Select(i => (byte)i).ToArray();
+
+        var first = LongTextRelayService.DeriveBurnTokenHash(key);
+        var second = LongTextRelayService.DeriveBurnTokenHash(key);
+
+        Assert.Equal(first, second);
+    }
 }

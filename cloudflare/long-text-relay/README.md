@@ -33,7 +33,7 @@ https://<obscure-subdomain>.ghostkernel.cc/x/<high-entropy-token>#k=<key>&b=<bur
 Current app builds use a shorter compact fragment:
 
 ```text
-https://<obscure-subdomain>.ghostkernel.cc/x/<high-entropy-token>#<key>.<burn-token>
+https://<obscure-subdomain>.ghostkernel.cc/x/<high-entropy-token>#<key>
 ```
 
 The `/x/` path and token are non-enumerable. Avoid obvious subdomains or paths such as `paste`, `clip`, `clipboard`, `share`, or `relay`.

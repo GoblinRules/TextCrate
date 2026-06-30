@@ -26,6 +26,7 @@ type UploadRequest = {
   passwordProtected?: boolean;
   kdfIterations?: number;
   burnToken?: string;
+  burnTokenHash?: string;
 };
 
 const TOKEN_RE = /^[A-Za-z0-9_-]{20,96}$/;
@@ -88,7 +89,7 @@ async function handleStore(request: Request, env: Env): Promise<Response> {
     burnAfterRead: body.burnAfterRead !== false,
     passwordProtected: body.passwordProtected === true,
     kdfIterations: body.kdfIterations ?? 310000,
-    burnTokenHash: await sha256Base64Url(body.burnToken!)
+    burnTokenHash: body.burnTokenHash ?? await sha256Base64Url(body.burnToken!)
   };
 
   await env.RELAY_KV.put(itemKey(body.token!), JSON.stringify(item), {
@@ -160,8 +161,10 @@ function isValidUpload(body: UploadRequest, env: Env): boolean {
     && typeof expiry === 'number'
     && expiry >= 1
     && expiry <= 60
-    && typeof body.burnToken === 'string'
-    && B64URL_RE.test(body.burnToken);
+    && (
+      typeof body.burnTokenHash === 'string' && B64URL_RE.test(body.burnTokenHash)
+      || typeof body.burnToken === 'string' && B64URL_RE.test(body.burnToken)
+    );
 }
 
 async function allowRequest(request: Request, env: Env): Promise<boolean> {
@@ -271,6 +274,8 @@ const unlockBtn=document.getElementById('unlock');
 let item;
 const fail=(m)=>{statusEl.textContent='';errorEl.textContent=m||'This link is expired, burned, unavailable, or invalid.'};
 const b64=(s)=>Uint8Array.from(atob(s.replaceAll('-','+').replaceAll('_','/').padEnd(s.length+(4-s.length%4)%4,'=')),c=>c.charCodeAt(0));
+const enc=new TextEncoder();
+const b64u=(bytes)=>{let s='';for(const b of bytes)s+=String.fromCharCode(b);return btoa(s).replaceAll('+','-').replaceAll('/','_').replaceAll('=','')};
 async function finalKey(master,salt,password,iterations){
   // The fragment key is random. If a password is present, PBKDF2 adds a second local-only factor.
   if(!password) return await crypto.subtle.importKey('raw',master,'AES-GCM',false,['decrypt']);
@@ -292,10 +297,19 @@ async function decrypt(password){
     textEl.value=new TextDecoder().decode(plain);
     textEl.hidden=false; copyBtn.hidden=false; passwordRow.hidden=true; errorEl.textContent=''; statusEl.textContent='Ready.';
     if(item.burnAfterRead){
-      const burnToken=hash.b;
+      const burnToken=hash.b || await deriveBurnToken(k);
       if(burnToken) fetch('/.gk7/burn',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token,burnToken})}).catch(()=>{});
     }
   }catch{ fail('Could not decrypt. Check the link and password.'); }
+}
+async function deriveBurnToken(k){
+  const master=b64(k);
+  const prefix=enc.encode('TextCrate burn token v1');
+  const material=new Uint8Array(prefix.length+master.length);
+  material.set(prefix,0); material.set(master,prefix.length);
+  const hash=await crypto.subtle.digest('SHA-256',material);
+  material.fill(0); master.fill(0);
+  return b64u(new Uint8Array(hash));
 }
 (async()=>{
   if(!token) return fail();
