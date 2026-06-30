@@ -68,7 +68,7 @@ Privacy/security behavior:
 - Cloudflare can see IP address, request timing, ciphertext size, expiry metadata, and the opaque token path. It cannot see plaintext, fragment keys, or passwords.
 - Anyone with the full URL fragment, and the password if one was set, can decrypt the payload before expiry.
 
-The receiving page has a **Copy full text** button after browser-side decryption. It also shows an optional PowerShell helper command that downloads a small auditable helper script, decrypts locally from the full URL fragment, and copies the text to the Windows clipboard.
+The receiving page has a **Copy full text** button after browser-side decryption.
 
 The Worker implementation and deployment notes live in [`cloudflare/long-text-relay`](cloudflare/long-text-relay).
 

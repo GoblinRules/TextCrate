@@ -48,15 +48,6 @@ export default {
         return await handleItem(url.pathname.slice('/.gk7/item/'.length), env);
       }
 
-      if (request.method === 'GET' && url.pathname === '/.gk7/ps1') {
-        return new Response(powerShellHelper(), {
-          headers: {
-            'content-type': 'text/plain; charset=utf-8',
-            'cache-control': 'no-store'
-          }
-        });
-      }
-
       if (request.method === 'POST' && url.pathname === '/.gk7/burn') {
         return await handleBurn(request, env);
       }
@@ -264,8 +255,6 @@ input{background:#020617;color:#e5eefc;border:1px solid #475569;padding:9px;widt
 <div id="passwordRow" hidden><input id="password" type="password" autocomplete="off" placeholder="Password"><button id="unlock">Unlock</button></div>
 <p id="status">Loading...</p>
 <p id="error"></p>
-<label class="muted" for="ps">Optional PowerShell helper</label>
-<textarea id="ps" readonly></textarea>
 <textarea id="text" readonly hidden></textarea>
 <p><button id="copy" hidden>Copy full text</button></p>
 </div>
@@ -275,14 +264,12 @@ const token=${JSON.stringify(safeToken)};
 const statusEl=document.getElementById('status');
 const errorEl=document.getElementById('error');
 const textEl=document.getElementById('text');
-const psEl=document.getElementById('ps');
 const copyBtn=document.getElementById('copy');
 const passwordRow=document.getElementById('passwordRow');
 const passwordInput=document.getElementById('password');
 const unlockBtn=document.getElementById('unlock');
 let item;
 const fail=(m)=>{statusEl.textContent='';errorEl.textContent=m||'This link is expired, burned, unavailable, or invalid.'};
-psEl.value='powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (irm '+location.origin+'/.gk7/ps1); Receive-TextCrateRelay '+JSON.stringify(location.href).replaceAll('"','\\\\"')+'"';
 const b64=(s)=>Uint8Array.from(atob(s.replaceAll('-','+').replaceAll('_','/').padEnd(s.length+(4-s.length%4)%4,'=')),c=>c.charCodeAt(0));
 async function finalKey(master,salt,password,iterations){
   // The fragment key is random. If a password is present, PBKDF2 adds a second local-only factor.
@@ -333,76 +320,4 @@ copyBtn.onclick=async()=>{await navigator.clipboard.writeText(textEl.value); sta
 </script>
 </body>
 </html>`;
-}
-
-function powerShellHelper(): string {
-  return String.raw`function ConvertFrom-TextCrateBase64Url([string]$Value) {
-  $padded = $Value.Replace('-', '+').Replace('_', '/')
-  $padded = $padded.PadRight($padded.Length + (4 - $padded.Length % 4) % 4, '=')
-  [Convert]::FromBase64String($padded)
-}
-
-function Receive-TextCrateRelay([string]$Url) {
-  $uri = [Uri]$Url
-  $fragment = $uri.Fragment.TrimStart('#')
-  $parts = @{}
-  if ($fragment.Contains('=')) {
-    foreach ($part in $fragment.Split('&')) {
-      if ($part.Contains('=')) {
-        $kv = $part.Split('=', 2)
-        $parts[$kv[0]] = [Uri]::UnescapeDataString($kv[1])
-      }
-    }
-  } else {
-    $compact = $fragment.Split('.')
-    if ($compact.Length -gt 0) { $parts['k'] = [Uri]::UnescapeDataString($compact[0]) }
-    if ($compact.Length -gt 1) { $parts['b'] = [Uri]::UnescapeDataString($compact[1]) }
-  }
-  if (-not $parts.ContainsKey('k')) { throw 'Missing decryption key.' }
-
-  $token = $uri.AbsolutePath.Split('/')[-1]
-  $origin = $uri.GetLeftPart([UriPartial]::Authority)
-  $item = Invoke-RestMethod -Uri "$origin/.gk7/item/$token"
-  $master = ConvertFrom-TextCrateBase64Url $parts['k']
-  $password = ''
-  if ($item.passwordProtected) {
-    $secure = Read-Host 'Password' -AsSecureString
-    $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
-    try { $password = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr) } finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr) }
-  }
-
-  if ($password.Length -gt 0) {
-    $salt = ConvertFrom-TextCrateBase64Url $item.salt
-    $pbkdf = [Security.Cryptography.Rfc2898DeriveBytes]::new($password, $salt, [int]$item.kdfIterations, [Security.Cryptography.HashAlgorithmName]::SHA256)
-    $passKey = $pbkdf.GetBytes(32)
-    $combined = [byte[]]::new($master.Length + $passKey.Length)
-    [Array]::Copy($master, 0, $combined, 0, $master.Length)
-    [Array]::Copy($passKey, 0, $combined, $master.Length, $passKey.Length)
-    $key = [Security.Cryptography.SHA256]::HashData($combined)
-    [Array]::Clear($combined, 0, $combined.Length)
-    [Array]::Clear($passKey, 0, $passKey.Length)
-  } else {
-    $key = $master
-  }
-
-  $cipherAndTag = ConvertFrom-TextCrateBase64Url $item.ciphertext
-  $nonce = ConvertFrom-TextCrateBase64Url $item.nonce
-  $cipher = [byte[]]::new($cipherAndTag.Length - 16)
-  $tag = [byte[]]::new(16)
-  [Array]::Copy($cipherAndTag, 0, $cipher, 0, $cipher.Length)
-  [Array]::Copy($cipherAndTag, $cipher.Length, $tag, 0, 16)
-  $plain = [byte[]]::new($cipher.Length)
-  $aes = [Security.Cryptography.AesGcm]::new($key, 16)
-  $aes.Decrypt($nonce, $cipher, $tag, $plain)
-  $text = [Text.Encoding]::UTF8.GetString($plain)
-  Set-Clipboard -Value $text
-
-  if ($item.burnAfterRead -and $parts.ContainsKey('b')) {
-    $body = @{ token = $token; burnToken = $parts['b'] } | ConvertTo-Json -Compress
-    Invoke-RestMethod -Method Post -Uri "$origin/.gk7/burn" -ContentType 'application/json' -Body $body | Out-Null
-  }
-  [Array]::Clear($plain, 0, $plain.Length)
-  [Array]::Clear($master, 0, $master.Length)
-  Write-Host 'Copied TextCrate relay text to clipboard.'
-}`;
 }

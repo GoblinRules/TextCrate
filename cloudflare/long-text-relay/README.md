@@ -38,14 +38,6 @@ https://<obscure-subdomain>.ghostkernel.cc/x/<high-entropy-token>#<key>.<burn-to
 
 The `/x/` path and token are non-enumerable. Avoid obvious subdomains or paths such as `paste`, `clip`, `clipboard`, `share`, or `relay`.
 
-The receiving page also shows an optional PowerShell command:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "iex (irm https://qz9v4k.ghostkernel.cc/.gk7/ps1); Receive-TextCrateRelay '<full-one-time-url>'"
-```
-
-That helper still decrypts locally. The Worker-served script contains no plaintext or secret and the full URL fragment is passed only to local PowerShell.
-
 ## KV
 
 KV is used because relay items are short-to-medium text snippets and KV supports TTL-based expiry. R2 is unnecessary unless you want much larger payloads later.
