@@ -28,7 +28,7 @@ type UploadRequest = {
   burnToken?: string;
 };
 
-const TOKEN_RE = /^[A-Za-z0-9_-]{32,96}$/;
+const TOKEN_RE = /^[A-Za-z0-9_-]{20,96}$/;
 const B64URL_RE = /^[A-Za-z0-9_-]+$/;
 const GENERIC_UNAVAILABLE = 'This link is expired, burned, unavailable, or invalid.';
 

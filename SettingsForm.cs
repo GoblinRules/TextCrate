@@ -239,6 +239,7 @@ internal sealed class SettingsForm : Form
         _longTextRelayEndpoint.Anchor = AnchorStyles.Left | AnchorStyles.Right;
         _longTextRelayEndpoint.Margin = new Padding(0, 3, 0, 3);
         _longTextRelayEndpoint.Width = 454;
+        _longTextRelayEndpoint.PlaceholderText = "https://your-worker.example.com";
         table.Controls.Add(_longTextRelayEndpoint, 1, 2);
 
         _longTextRelayExpiry.SetOptions(
@@ -548,7 +549,14 @@ internal sealed class SettingsForm : Form
 
     private void UpdateRelayEndpointState()
     {
-        if (!_longTextRelayUseCustomEndpoint.Checked)
+        if (_longTextRelayUseCustomEndpoint.Checked)
+        {
+            if (string.Equals(_longTextRelayEndpoint.Text.Trim(), AppSettings.DefaultLongTextRelayEndpoint, StringComparison.OrdinalIgnoreCase))
+            {
+                _longTextRelayEndpoint.Text = string.Empty;
+            }
+        }
+        else
         {
             _longTextRelayEndpoint.Text = AppSettings.DefaultLongTextRelayEndpoint;
         }

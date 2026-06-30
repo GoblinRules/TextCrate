@@ -190,7 +190,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         catch (Exception ex)
         {
             Logger.Error("Long Text Relay upload failed.", ex);
-            MessageBox.Show("Long Text Relay upload failed. TextCrate will not upload or type anything.", "TextCrate Long Text Relay", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            EndBusy();
+            MessageBox.Show($"Long Text Relay upload failed. TextCrate will not upload or type anything.\n\n{ex.Message}", "TextCrate Long Text Relay", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return string.Empty;
         }
     }
@@ -247,7 +248,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         catch (Exception ex)
         {
             Logger.Error("Long Text Relay upload failed.", ex);
-            MessageBox.Show("Long Text Relay upload failed. TextCrate did not upload plaintext.", "TextCrate Long Text Relay", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            EndBusy();
+            MessageBox.Show($"Long Text Relay upload failed. TextCrate did not upload plaintext.\n\n{ex.Message}", "TextCrate Long Text Relay", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         finally
         {
