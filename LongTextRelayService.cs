@@ -27,7 +27,7 @@ internal static class LongTextRelayService
 
     public static bool ShouldOffer(string text, AppSettings settings)
     {
-        if (!settings.LongTextRelayEnabled || string.IsNullOrWhiteSpace(settings.LongTextRelayEndpoint))
+        if (!settings.LongTextRelayEnabled || string.IsNullOrWhiteSpace(GetEndpoint(settings)))
         {
             return false;
         }
@@ -35,6 +35,13 @@ internal static class LongTextRelayService
         return text.Length >= Math.Clamp(settings.LongTextRelayOfferOver, 250, 1000000)
             || text.Count(static c => c == '\n') >= 40
             || text.Length > 1200 && text.Any(static c => c is '\t' or '{' or '}' or '<' or '>' or '\\');
+    }
+
+    public static string GetEndpoint(AppSettings settings)
+    {
+        return settings.LongTextRelayUseCustomEndpoint
+            ? settings.LongTextRelayEndpoint.Trim()
+            : AppSettings.DefaultLongTextRelayEndpoint;
     }
 
     public static async Task<LongTextRelayResult> CreateAsync(string text, LongTextRelayOptions options, CancellationToken cancellationToken)

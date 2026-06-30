@@ -33,6 +33,30 @@ public sealed class LongTextRelayServiceTests
     }
 
     [Fact]
+    public void GetEndpointUsesBuiltInEndpointUnlessCustomIsEnabled()
+    {
+        var settings = new AppSettings
+        {
+            LongTextRelayUseCustomEndpoint = false,
+            LongTextRelayEndpoint = "https://custom.example"
+        };
+
+        Assert.Equal(AppSettings.DefaultLongTextRelayEndpoint, LongTextRelayService.GetEndpoint(settings));
+    }
+
+    [Fact]
+    public void GetEndpointUsesCustomEndpointWhenEnabled()
+    {
+        var settings = new AppSettings
+        {
+            LongTextRelayUseCustomEndpoint = true,
+            LongTextRelayEndpoint = " https://custom.example "
+        };
+
+        Assert.Equal("https://custom.example", LongTextRelayService.GetEndpoint(settings));
+    }
+
+    [Fact]
     public void PasswordDerivationIsDeterministicForSameInputs()
     {
         var masterKey = Enumerable.Range(0, 32).Select(i => (byte)i).ToArray();

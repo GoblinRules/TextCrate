@@ -8,10 +8,10 @@
     <ApplicationIcon>..\assets\icon.ico</ApplicationIcon>
     <AssemblyName>TextCrate.Setup</AssemblyName>
     <RootNamespace>TextCrate.Setup</RootNamespace>
-    <Version>1.1.0</Version>
-    <AssemblyVersion>1.1.0.0</AssemblyVersion>
-    <FileVersion>1.1.0.0</FileVersion>
-    <InformationalVersion>1.1.0</InformationalVersion>
+    <Version>1.1.1</Version>
+    <AssemblyVersion>1.1.1.0</AssemblyVersion>
+    <FileVersion>1.1.1.0</FileVersion>
+    <InformationalVersion>1.1.1</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
     <Company>Goblin Rules</Company>
     <Product>TextCrate Setup</Product>

@@ -56,6 +56,8 @@ internal enum HotKeyModifiers
 
 internal sealed class AppSettings
 {
+    public const string DefaultLongTextRelayEndpoint = "https://qz9v4k.ghostkernel.cc";
+
     private static readonly string SettingsDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
         "TextCrate");
@@ -81,7 +83,8 @@ internal sealed class AppSettings
     public string ReadHotKey { get; set; } = "R";
     public HotKeyModifiers ReadHotKeyModifiers { get; set; } = HotKeyModifiers.Alt | HotKeyModifiers.Control;
     public bool LongTextRelayEnabled { get; set; }
-    public string LongTextRelayEndpoint { get; set; } = string.Empty;
+    public bool LongTextRelayUseCustomEndpoint { get; set; }
+    public string LongTextRelayEndpoint { get; set; } = DefaultLongTextRelayEndpoint;
     public LongTextRelayExpiry LongTextRelayExpiryMinutes { get; set; } = LongTextRelayExpiry.FifteenMinutes;
     public bool LongTextRelayBurnAfterRead { get; set; } = true;
     public bool LongTextRelayPromptForPassword { get; set; } = true;
@@ -96,7 +99,13 @@ internal sealed class AppSettings
                 return new AppSettings();
             }
 
-            return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath)) ?? new AppSettings();
+            var settings = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(SettingsPath)) ?? new AppSettings();
+            if (string.IsNullOrWhiteSpace(settings.LongTextRelayEndpoint))
+            {
+                settings.LongTextRelayEndpoint = DefaultLongTextRelayEndpoint;
+            }
+
+            return settings;
         }
         catch
         {

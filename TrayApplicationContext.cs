@@ -47,6 +47,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             Renderer = new ThemedMenuRenderer(palette)
         };
         menu.Items.Add("Paste clipboard to selected target", null, async (_, _) => await StartTargetPasteAsync());
+        menu.Items.Add("Upload clipboard as encrypted relay URL", null, async (_, _) => await UploadClipboardRelayUrlAsync());
         menu.Items.Add("Read screen area to clipboard", null, async (_, _) => await ReadScreenAreaAsync());
         menu.Items.Add(new ToolStripSeparator());
         var elevated = ElevationService.IsAdministrator();
@@ -178,7 +179,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             var relay = await LongTextRelayService.CreateAsync(
                 text,
                 new LongTextRelayOptions(
-                    _settings.LongTextRelayEndpoint,
+                    LongTextRelayService.GetEndpoint(_settings),
                     prompt.ExpiryMinutes,
                     prompt.BurnAfterRead,
                     prompt.Password),
@@ -191,6 +192,66 @@ internal sealed class TrayApplicationContext : ApplicationContext
             Logger.Error("Long Text Relay upload failed.", ex);
             MessageBox.Show("Long Text Relay upload failed. TextCrate will not upload or type anything.", "TextCrate Long Text Relay", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             return string.Empty;
+        }
+    }
+
+    private async Task UploadClipboardRelayUrlAsync()
+    {
+        if (_busy)
+        {
+            SystemSounds.Beep.Play();
+            return;
+        }
+
+        if (!_settings.LongTextRelayEnabled)
+        {
+            MessageBox.Show("Enable Long Text Relay in Settings first. TextCrate keeps this feature off by default for privacy.", "TextCrate Long Text Relay", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
+
+        if (!TryGetClipboardText(out var text))
+        {
+            return;
+        }
+
+        BeginBusy("TextCrate: preparing encrypted relay");
+        StopActivityIndicator();
+        using var prompt = new LongTextRelayPromptForm(_settings, text.Length);
+        if (prompt.ShowDialog() != DialogResult.OK)
+        {
+            EndBusy();
+            return;
+        }
+
+        StartActivityIndicator();
+        SetNotifyText("TextCrate: uploading encrypted relay");
+        try
+        {
+            using var uploadCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            var relay = await LongTextRelayService.CreateAsync(
+                text,
+                new LongTextRelayOptions(
+                    LongTextRelayService.GetEndpoint(_settings),
+                    prompt.ExpiryMinutes,
+                    prompt.BurnAfterRead,
+                    prompt.Password),
+                uploadCancellation.Token);
+            Clipboard.SetText(relay.Url);
+            Logger.Info($"Created Long Text Relay URL for {text.Length} characters and copied URL to clipboard.");
+            if (_settings.ShowNotifications)
+            {
+                StopActivityIndicator();
+                _notifyIcon.ShowBalloonTip(2500, "TextCrate", "Encrypted relay URL copied to clipboard.", ToolTipIcon.Info);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Error("Long Text Relay upload failed.", ex);
+            MessageBox.Show("Long Text Relay upload failed. TextCrate did not upload plaintext.", "TextCrate Long Text Relay", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        finally
+        {
+            EndBusy();
         }
     }
 

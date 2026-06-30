@@ -16,6 +16,7 @@ internal sealed class SettingsForm : Form
     private readonly TextBox _confirmOver = new();
     private readonly CheckBox _enhancedOcr = new();
     private readonly CheckBox _longTextRelayEnabled = new();
+    private readonly CheckBox _longTextRelayUseCustomEndpoint = new();
     private readonly TextBox _longTextRelayEndpoint = new();
     private readonly ThemedSelect _longTextRelayExpiry = new();
     private readonly CheckBox _longTextRelayBurnAfterRead = new();
@@ -128,7 +129,7 @@ internal sealed class SettingsForm : Form
         _toolTip.SetToolTip(_pasteHotKey.Key, "Press a key here. Backspace clears the hotkey.");
         _toolTip.SetToolTip(_readHotKey.Key, "Press a key here. Backspace clears the hotkey.");
         _toolTip.SetToolTip(_hotKeyMode, "Choose whether the paste hotkey asks for a target first or types into the active window.");
-        _toolTip.SetToolTip(_longTextRelayEndpoint, "Cloudflare Worker endpoint, for example https://<obscure-subdomain>.ghostkernel.cc.");
+        _toolTip.SetToolTip(_longTextRelayEndpoint, "Optional custom Cloudflare Worker endpoint. Leave custom endpoint off to use the built-in Ghost Kernel backend.");
         _toolTip.SetToolTip(_longTextRelayOfferOver, "TextCrate offers relay upload when clipboard text is at least this many characters or looks too complex for reliable typing.");
     }
 
@@ -211,15 +212,21 @@ internal sealed class SettingsForm : Form
     {
         var page = CreatePage("Relay");
         AddSectionTitle(page, "Long Text Relay", 0);
-        AddInfo(page, "Disabled by default. When enabled, TextCrate can replace a difficult long paste with an encrypted one-time URL. The app encrypts locally before upload; your Cloudflare Worker stores only ciphertext and expiry metadata.", 32, 650);
+        AddInfo(page, "Disabled by default. When enabled, TextCrate can replace a difficult long paste with an encrypted one-time URL. All relay text is encrypted locally before upload; the backend stores only ciphertext and expiry metadata.", 32, 650);
 
-        var table = CreateTable(page, 108, 7);
+        var table = CreateTable(page, 108, 8);
         _longTextRelayEnabled.Text = "Enable Long Text Relay";
         StyleCheckBox(_longTextRelayEnabled);
         table.Controls.Add(_longTextRelayEnabled, 0, 0);
         table.SetColumnSpan(_longTextRelayEnabled, 2);
 
-        AddRow(table, 1, "Backend endpoint", _longTextRelayEndpoint);
+        _longTextRelayUseCustomEndpoint.Text = "Use custom backend endpoint";
+        _longTextRelayUseCustomEndpoint.CheckedChanged += (_, _) => UpdateRelayEndpointState();
+        StyleCheckBox(_longTextRelayUseCustomEndpoint);
+        table.Controls.Add(_longTextRelayUseCustomEndpoint, 0, 1);
+        table.SetColumnSpan(_longTextRelayUseCustomEndpoint, 2);
+
+        AddRow(table, 2, "Backend endpoint", _longTextRelayEndpoint);
 
         _longTextRelayExpiry.SetOptions(
             new SelectOption("1 minute", LongTextRelayExpiry.OneMinute),
@@ -227,26 +234,26 @@ internal sealed class SettingsForm : Form
             new SelectOption("15 minutes", LongTextRelayExpiry.FifteenMinutes),
             new SelectOption("30 minutes", LongTextRelayExpiry.ThirtyMinutes),
             new SelectOption("1 hour", LongTextRelayExpiry.OneHour));
-        AddRow(table, 2, "Default expiry", _longTextRelayExpiry);
+        AddRow(table, 3, "Default expiry", _longTextRelayExpiry);
 
         _longTextRelayBurnAfterRead.Text = "Burn after first successful read";
         StyleCheckBox(_longTextRelayBurnAfterRead);
-        table.Controls.Add(_longTextRelayBurnAfterRead, 0, 3);
+        table.Controls.Add(_longTextRelayBurnAfterRead, 0, 4);
         table.SetColumnSpan(_longTextRelayBurnAfterRead, 2);
 
         _longTextRelayPromptForPassword.Text = "Prompt for optional password before upload";
         StyleCheckBox(_longTextRelayPromptForPassword);
-        table.Controls.Add(_longTextRelayPromptForPassword, 0, 4);
+        table.Controls.Add(_longTextRelayPromptForPassword, 0, 5);
         table.SetColumnSpan(_longTextRelayPromptForPassword, 2);
 
-        AddRow(table, 5, "Offer over characters", _longTextRelayOfferOver);
+        AddRow(table, 6, "Offer over characters", _longTextRelayOfferOver);
 
         _longTextRelayTest.Text = "Test connection";
         _longTextRelayTest.FlatStyle = FlatStyle.Flat;
         _longTextRelayTest.Width = 130;
         _longTextRelayTest.Height = 30;
         _longTextRelayTest.Click += async (_, _) => await TestLongTextRelayAsync();
-        table.Controls.Add(_longTextRelayTest, 1, 6);
+        table.Controls.Add(_longTextRelayTest, 1, 7);
 
         AddSubheading(page, "Security notes", 366);
         AddInfo(page, "Cloudflare can see your IP address, timing, ciphertext size, expiry, burn setting, and opaque token path. It cannot see plaintext, URL fragment keys, or passwords. Anyone who has the full link fragment and password can decrypt before expiry.", 394, 650);
@@ -465,11 +472,13 @@ internal sealed class SettingsForm : Form
         _ocrCleanup.SelectedValue = _settings.OcrCleanupMode;
         _enhancedOcr.Checked = _settings.EnhancedOcr;
         _longTextRelayEnabled.Checked = _settings.LongTextRelayEnabled;
+        _longTextRelayUseCustomEndpoint.Checked = _settings.LongTextRelayUseCustomEndpoint;
         _longTextRelayEndpoint.Text = _settings.LongTextRelayEndpoint;
         _longTextRelayExpiry.SelectedValue = _settings.LongTextRelayExpiryMinutes;
         _longTextRelayBurnAfterRead.Checked = _settings.LongTextRelayBurnAfterRead;
         _longTextRelayPromptForPassword.Checked = _settings.LongTextRelayPromptForPassword;
         _longTextRelayOfferOver.Text = Math.Clamp(_settings.LongTextRelayOfferOver, 250, 1000000).ToString();
+        UpdateRelayEndpointState();
         LoadHotKey(_pasteHotKey, _settings.HotKeyEnabled, _settings.HotKey, _settings.HotKeyModifiers);
         LoadHotKey(_readHotKey, _settings.ReadHotKeyEnabled, _settings.ReadHotKey, _settings.ReadHotKeyModifiers);
         _hotKeyMode.SelectedValue = _settings.HotKeyMode;
@@ -489,6 +498,7 @@ internal sealed class SettingsForm : Form
         _settings.OcrCleanupMode = (OcrCleanupMode)_ocrCleanup.SelectedValue!;
         _settings.EnhancedOcr = _enhancedOcr.Checked;
         _settings.LongTextRelayEnabled = _longTextRelayEnabled.Checked;
+        _settings.LongTextRelayUseCustomEndpoint = _longTextRelayUseCustomEndpoint.Checked;
         _settings.LongTextRelayEndpoint = _longTextRelayEndpoint.Text.Trim();
         _settings.LongTextRelayExpiryMinutes = (LongTextRelayExpiry)_longTextRelayExpiry.SelectedValue!;
         _settings.LongTextRelayBurnAfterRead = _longTextRelayBurnAfterRead.Checked;
@@ -505,7 +515,10 @@ internal sealed class SettingsForm : Form
         _longTextRelayTest.Enabled = false;
         try
         {
-            await LongTextRelayService.TestConnectionAsync(_longTextRelayEndpoint.Text, CancellationToken.None);
+            var endpoint = _longTextRelayUseCustomEndpoint.Checked
+                ? _longTextRelayEndpoint.Text
+                : AppSettings.DefaultLongTextRelayEndpoint;
+            await LongTextRelayService.TestConnectionAsync(endpoint, CancellationToken.None);
             MessageBox.Show(this, "Long Text Relay backend responded successfully.", "TextCrate Long Text Relay", MessageBoxButtons.OK, MessageBoxIcon.Information);
         }
         catch (Exception ex)
@@ -516,6 +529,17 @@ internal sealed class SettingsForm : Form
         {
             _longTextRelayTest.Enabled = true;
         }
+    }
+
+    private void UpdateRelayEndpointState()
+    {
+        if (!_longTextRelayUseCustomEndpoint.Checked)
+        {
+            _longTextRelayEndpoint.Text = AppSettings.DefaultLongTextRelayEndpoint;
+        }
+
+        _longTextRelayEndpoint.ReadOnly = !_longTextRelayUseCustomEndpoint.Checked;
+        _longTextRelayEndpoint.Enabled = _longTextRelayUseCustomEndpoint.Checked;
     }
 
     private static void LoadHotKey(HotKeyControls controls, bool enabled, string key, HotKeyModifiers modifiers)

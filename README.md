@@ -7,7 +7,7 @@ It has two core jobs:
 - Type your local clipboard into a selected remote window.
 - Read text from a selected screen region with OCR and copy it back to your clipboard.
 
-It also includes an optional **Long Text Relay** for difficult large pastes. This is disabled by default and only works after you configure your own Cloudflare Worker endpoint.
+It also includes an optional **Long Text Relay** for difficult large pastes. This is disabled by default, uses the built-in Ghost Kernel Cloudflare endpoint unless you choose a custom endpoint, and always encrypts text locally before upload.
 
 Website: [ghostkernel.cc](https://ghostkernel.cc)
 
@@ -25,6 +25,7 @@ The builds are unsigned. Windows may show an unknown-publisher warning until Tex
 
 - Left-click the tray icon, then click a target window to type the current clipboard text into it.
 - Right-click the tray icon for OCR, settings, cancel, relaunch as administrator, and exit.
+- Right-click the tray icon and choose **Upload clipboard as encrypted relay URL** to manually create a one-time relay link.
 - Choose **Read screen area to clipboard**, then drag a rectangle over text on screen.
 - Press `Esc` while choosing a target or OCR area to cancel.
 
@@ -50,11 +51,13 @@ TextCrate uses bundled Tesseract `tessdata_best` English OCR first, then falls b
 
 ## Long Text Relay
 
-Long Text Relay is designed for long snippets, config blocks, or secrets that are awkward to type into a remote VM. When enabled and the clipboard is over the configured threshold, TextCrate offers to upload an encrypted relay item and type only the generated one-time URL into the target.
+Long Text Relay is designed for long snippets, config blocks, or secrets that are awkward to type into a remote VM. When enabled and the clipboard is over the configured threshold, TextCrate offers to upload an encrypted relay item and type only the generated one-time URL into the target. You can also manually upload the current clipboard from the tray menu.
 
 Privacy/security behavior:
 
 - Disabled by default.
+- Built-in endpoint: `https://qz9v4k.ghostkernel.cc`.
+- Custom endpoint is optional in Settings.
 - Text is encrypted locally before upload with AES-GCM.
 - If a password is entered, TextCrate derives an extra key with PBKDF2-SHA256 before encryption.
 - The Cloudflare Worker stores ciphertext, nonce, optional salt, expiry, burn setting, and minimal metadata only.
