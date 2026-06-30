@@ -7,8 +7,8 @@ routes = [{ pattern = "qz9v4k.ghostkernel.cc", custom_domain = true }]
 
 [[kv_namespaces]]
 binding = "RELAY_KV"
-id = "c69b5d1d71a24a5c89b057baadccab47"
-preview_id = "b109661936544815b3e87a28ca960c15"
+id = "replace-with-production-kv-namespace-id"
+preview_id = "replace-with-preview-kv-namespace-id"
 
 [vars]
 MAX_CIPHERTEXT_BYTES = "262144"

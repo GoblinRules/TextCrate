@@ -58,7 +58,7 @@ npx wrangler kv namespace create RELAY_KV
 npx wrangler kv namespace create RELAY_KV --preview
 ```
 
-Copy the returned IDs into `wrangler.toml`.
+Copy the returned IDs into your local `wrangler.toml` before deploying. The committed file intentionally uses placeholder namespace IDs so the public repo does not expose production Cloudflare resource identifiers.
 
 ## Deploy With Wrangler
 

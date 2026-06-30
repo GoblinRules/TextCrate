@@ -1,5 +1,9 @@
 # TextCrate
 
+<p>
+  <img src="docs/images/icon.png" width="96" alt="TextCrate icon">
+</p>
+
 TextCrate is a Windows tray utility by **Goblin Rules** for working with remote VMs, browser consoles, and systems where shared clipboard is unreliable or unavailable.
 
 It has two core jobs:
@@ -10,6 +14,12 @@ It has two core jobs:
 It also includes an optional **Long Text Relay** for difficult large pastes. This is disabled by default, uses the built-in Ghost Kernel Cloudflare endpoint unless you choose a custom endpoint, and always encrypts text locally before upload.
 
 Website: [ghostkernel.cc](https://ghostkernel.cc)
+
+## Screenshots
+
+| General | OCR | Relay | Startup |
+| --- | --- | --- | --- |
+| <img src="docs/images/settings-general.png" width="220" alt="TextCrate general settings"> | <img src="docs/images/settings-ocr.png" width="220" alt="TextCrate OCR settings"> | <img src="docs/images/settings-relay.png" width="220" alt="TextCrate relay settings"> | <img src="docs/images/settings-startup.png" width="220" alt="TextCrate startup settings"> |
 
 ## Install
 
@@ -29,7 +39,7 @@ The builds are unsigned. Windows may show an unknown-publisher warning until Tex
 - Choose **Read screen area to clipboard**, then drag a rectangle over text on screen.
 - Press `Esc` while choosing a target or OCR area to cancel.
 
-TextCrate uses bundled Tesseract `tessdata_best` English OCR first, then falls back to Windows OCR if needed. Enhanced OCR is enabled by default and runs extra internal passes for small UI text, low-contrast text, table rows, colored status pills, times, ports, code, and `.env` style text without requiring mode changes.
+TextCrate uses bundled Tesseract `tessdata_best` English OCR first, then falls back to Windows OCR if needed. Enhanced OCR is enabled by default and runs extra internal passes for small UI text, low-contrast text, table rows, colored status pills, times, ports, code, and `.env` style text without requiring mode changes. OCR is still hit and miss on tiny, anti-aliased, low-contrast, or unusual UI text, so tight screen selections usually work best.
 
 ## Settings
 
@@ -90,7 +100,11 @@ Use **Relaunch as administrator** from the tray menu, or enable **Start as admin
 
 ### OCR misses small dashboard text
 
-Keep **Enhanced OCR** enabled and select only the smallest useful screen area. Very tiny or low-contrast text may still need a tighter selection box.
+Keep **Enhanced OCR** enabled and select only the smallest useful screen area. Very tiny, low-contrast, anti-aliased, or stylized text can still be misread. OCR is useful as a quick assist, not a guaranteed exact capture path.
+
+### Symbols type incorrectly into a remote machine
+
+Remote VM/browser consoles often interpret typed keys using the remote OS keyboard layout. If your local machine is UK QWERTY but the remote is US QWERTY, symbols such as `@`, `"`, `#`, `\`, and `|` can be typed incorrectly. The most reliable fixes are to set the remote keyboard layout to match your local layout, use **Clipboard paste (Ctrl+V)** when the target supports it, or use **Long Text Relay** for long or symbol-heavy text.
 
 ### Hotkey does not register
 
@@ -117,6 +131,18 @@ cd cloudflare\long-text-relay
 npm install
 npm test
 ```
+
+## Public Repo Safety
+
+This repository is intended to be safe to make public, with these caveats:
+
+- No Cloudflare API tokens, account tokens, passwords, private keys, or `.dev.vars` files should be committed.
+- `.dev.vars`, build output, `node_modules`, `artifacts`, `bin`, `obj`, and `temp` are ignored.
+- The built-in relay endpoint `https://qz9v4k.ghostkernel.cc` is public by design because the desktop app needs to know where to upload encrypted relay payloads.
+- The Worker code and URL paths are public. Security should come from client-side encryption, high-entropy tokens, expiry, burn-after-read, and rate limiting, not from hiding code paths.
+- `cloudflare/long-text-relay/wrangler.toml` uses placeholder KV namespace IDs. Put real Cloudflare KV IDs into your local deployment config before deploying, but do not commit secrets.
+- Cloudflare KV namespace IDs are not API secrets, but they are internal resource identifiers, so placeholders are cleaner for a public repo.
+- Optional short links are less private because the backend stores the full decrypt link until expiry. Keep that setting off unless shorter URLs are worth the tradeoff.
 
 ## License
 
