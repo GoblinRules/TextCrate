@@ -17,12 +17,14 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox _enhancedOcr = new();
     private readonly CheckBox _longTextRelayEnabled = new();
     private readonly CheckBox _longTextRelayUseCustomEndpoint = new();
+    private readonly Label _longTextRelayEndpointLabel = new();
     private readonly TextBox _longTextRelayEndpoint = new();
     private readonly ThemedSelect _longTextRelayExpiry = new();
     private readonly CheckBox _longTextRelayBurnAfterRead = new();
     private readonly CheckBox _longTextRelayPromptForPassword = new();
     private readonly TextBox _longTextRelayOfferOver = new();
     private readonly Button _longTextRelayTest = new();
+    private TableLayoutPanel? _longTextRelayTable;
     private readonly HotKeyControls _pasteHotKey = new("Enable paste hotkey");
     private readonly HotKeyControls _readHotKey = new("Enable read screen hotkey");
     private readonly ToolTip _toolTip = new();
@@ -39,7 +41,8 @@ internal sealed class SettingsForm : Form
         MaximizeBox = false;
         MinimizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(760, 720);
+        AutoScaleMode = AutoScaleMode.Dpi;
+        ClientSize = new Size(780, 760);
         Font = new Font("Segoe UI", 9F);
 
         BuildLayout();
@@ -71,7 +74,7 @@ internal sealed class SettingsForm : Form
         var tabs = new FlowLayoutPanel
         {
             Location = new Point(24, 92),
-            Size = new Size(710, 42),
+            Size = new Size(732, 42),
             FlowDirection = FlowDirection.LeftToRight,
             WrapContents = false,
             BackColor = Color.Transparent
@@ -103,8 +106,8 @@ internal sealed class SettingsForm : Form
 
         var buttons = new FlowLayoutPanel
         {
-            Location = new Point(24, 648),
-            Size = new Size(710, 42),
+            Location = new Point(24, 688),
+            Size = new Size(732, 42),
             FlowDirection = FlowDirection.RightToLeft,
             BackColor = Color.Transparent
         };
@@ -212,9 +215,10 @@ internal sealed class SettingsForm : Form
     {
         var page = CreatePage("Relay");
         AddSectionTitle(page, "Long Text Relay", 0);
-        AddInfo(page, "Disabled by default. When enabled, TextCrate can replace a difficult long paste with an encrypted one-time URL. All relay text is encrypted locally before upload; the backend stores only ciphertext and expiry metadata.", 32, 650);
+        AddInfo(page, "Disabled by default. When enabled, TextCrate can replace a difficult long paste with an encrypted one-time URL. All relay text is encrypted locally before upload; the backend stores only ciphertext and expiry metadata.", 32, 670);
 
-        var table = CreateTable(page, 108, 8);
+        var table = CreateTable(page, 112, 8);
+        _longTextRelayTable = table;
         _longTextRelayEnabled.Text = "Enable Long Text Relay";
         StyleCheckBox(_longTextRelayEnabled);
         table.Controls.Add(_longTextRelayEnabled, 0, 0);
@@ -226,7 +230,16 @@ internal sealed class SettingsForm : Form
         table.Controls.Add(_longTextRelayUseCustomEndpoint, 0, 1);
         table.SetColumnSpan(_longTextRelayUseCustomEndpoint, 2);
 
-        AddRow(table, 2, "Backend endpoint", _longTextRelayEndpoint);
+        _longTextRelayEndpointLabel.Text = "Backend endpoint";
+        _longTextRelayEndpointLabel.UseMnemonic = false;
+        _longTextRelayEndpointLabel.AutoSize = true;
+        _longTextRelayEndpointLabel.Anchor = AnchorStyles.Left;
+        table.Controls.Add(_longTextRelayEndpointLabel, 0, 2);
+        _longTextRelayEndpoint.Dock = DockStyle.None;
+        _longTextRelayEndpoint.Anchor = AnchorStyles.Left | AnchorStyles.Right;
+        _longTextRelayEndpoint.Margin = new Padding(0, 3, 0, 3);
+        _longTextRelayEndpoint.Width = 454;
+        table.Controls.Add(_longTextRelayEndpoint, 1, 2);
 
         _longTextRelayExpiry.SetOptions(
             new SelectOption("1 minute", LongTextRelayExpiry.OneMinute),
@@ -255,8 +268,8 @@ internal sealed class SettingsForm : Form
         _longTextRelayTest.Click += async (_, _) => await TestLongTextRelayAsync();
         table.Controls.Add(_longTextRelayTest, 1, 7);
 
-        AddSubheading(page, "Security notes", 366);
-        AddInfo(page, "Cloudflare can see your IP address, timing, ciphertext size, expiry, burn setting, and opaque token path. It cannot see plaintext, URL fragment keys, or passwords. Anyone who has the full link fragment and password can decrypt before expiry.", 394, 650);
+        AddSubheading(page, "Security notes", 414);
+        AddInfo(page, "The built-in Ghost Kernel backend is used unless you enable a custom endpoint. Cloudflare can see your IP address, timing, ciphertext size, expiry, burn setting, and opaque token path. It cannot see plaintext, URL fragment keys, or passwords. Anyone who has the full link fragment and password can decrypt before expiry.", 442, 670);
     }
 
     private void BuildStartupPage()
@@ -316,7 +329,7 @@ internal sealed class SettingsForm : Form
         var page = new Panel
         {
             Location = new Point(24, 146),
-            Size = new Size(710, 482),
+            Size = new Size(732, 522),
             BackColor = Color.Transparent,
             Visible = false
         };
@@ -330,7 +343,7 @@ internal sealed class SettingsForm : Form
         var table = new TableLayoutPanel
         {
             Location = new Point(0, y),
-            Size = new Size(682, rowCount * 34),
+            Size = new Size(704, rowCount * 34),
             ColumnCount = 2,
             RowCount = rowCount,
             BackColor = Color.Transparent
@@ -382,24 +395,26 @@ internal sealed class SettingsForm : Form
         });
     }
 
-    private static void AddRow(TableLayoutPanel table, int row, string label, Control control)
+    private static Label AddRow(TableLayoutPanel table, int row, string label, Control control)
     {
-        table.Controls.Add(new Label
+        var labelControl = new Label
         {
             Text = label,
             UseMnemonic = false,
             AutoSize = true,
             Anchor = AnchorStyles.Left
-        }, 0, row);
+        };
+        table.Controls.Add(labelControl, 0, row);
         control.Dock = DockStyle.None;
         control.Anchor = AnchorStyles.Left | AnchorStyles.Right;
         control.Margin = new Padding(0, 3, 0, 3);
-        control.Width = 454;
+        control.Width = 476;
         if (control is ThemedSelect)
         {
             control.Height = 28;
         }
         table.Controls.Add(control, 1, row);
+        return labelControl;
     }
 
     private void AddHotKeyRows(TableLayoutPanel table, int startRow, string label, HotKeyControls controls)
@@ -539,7 +554,13 @@ internal sealed class SettingsForm : Form
         }
 
         _longTextRelayEndpoint.ReadOnly = !_longTextRelayUseCustomEndpoint.Checked;
+        _longTextRelayEndpoint.Visible = _longTextRelayUseCustomEndpoint.Checked;
         _longTextRelayEndpoint.Enabled = _longTextRelayUseCustomEndpoint.Checked;
+        _longTextRelayEndpointLabel.Visible = _longTextRelayUseCustomEndpoint.Checked;
+        if (_longTextRelayTable is not null && _longTextRelayTable.RowStyles.Count > 2)
+        {
+            _longTextRelayTable.RowStyles[2].Height = _longTextRelayUseCustomEndpoint.Checked ? 34 : 0;
+        }
     }
 
     private static void LoadHotKey(HotKeyControls controls, bool enabled, string key, HotKeyModifiers modifiers)

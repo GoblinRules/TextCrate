@@ -297,15 +297,15 @@ async function finalKey(master,salt,password,iterations){
 }
 async function decrypt(password){
   try{
-    const hash=new URLSearchParams(location.hash.slice(1));
-    const k=hash.get('k');
+    const hash=parseFragment();
+    const k=hash.k;
     if(!k) return fail('Missing decryption key.');
     const key=await finalKey(b64(k), item.salt ? b64(item.salt) : new Uint8Array(), password || '', item.kdfIterations || 310000);
     const plain=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(item.nonce),tagLength:128},key,b64(item.ciphertext));
     textEl.value=new TextDecoder().decode(plain);
     textEl.hidden=false; copyBtn.hidden=false; passwordRow.hidden=true; errorEl.textContent=''; statusEl.textContent='Ready.';
     if(item.burnAfterRead){
-      const burnToken=hash.get('b');
+      const burnToken=hash.b;
       if(burnToken) fetch('/.gk7/burn',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({token,burnToken})}).catch(()=>{});
     }
   }catch{ fail('Could not decrypt. Check the link and password.'); }
@@ -318,6 +318,15 @@ async function decrypt(password){
   if(item.passwordProtected){statusEl.textContent='Password required.';passwordRow.hidden=false;passwordInput.focus();}
   else await decrypt('');
 })();
+function parseFragment(){
+  const raw=location.hash.slice(1);
+  if(raw.includes('=')){
+    const p=new URLSearchParams(raw);
+    return {k:p.get('k'),b:p.get('b')};
+  }
+  const parts=raw.split('.');
+  return {k:parts[0]||null,b:parts[1]||null};
+}
 unlockBtn.onclick=()=>decrypt(passwordInput.value);
 passwordInput.onkeydown=(e)=>{if(e.key==='Enter') decrypt(passwordInput.value)};
 copyBtn.onclick=async()=>{await navigator.clipboard.writeText(textEl.value); statusEl.textContent='Copied.'};
@@ -337,11 +346,17 @@ function Receive-TextCrateRelay([string]$Url) {
   $uri = [Uri]$Url
   $fragment = $uri.Fragment.TrimStart('#')
   $parts = @{}
-  foreach ($part in $fragment.Split('&')) {
-    if ($part.Contains('=')) {
-      $kv = $part.Split('=', 2)
-      $parts[$kv[0]] = [Uri]::UnescapeDataString($kv[1])
+  if ($fragment.Contains('=')) {
+    foreach ($part in $fragment.Split('&')) {
+      if ($part.Contains('=')) {
+        $kv = $part.Split('=', 2)
+        $parts[$kv[0]] = [Uri]::UnescapeDataString($kv[1])
+      }
     }
+  } else {
+    $compact = $fragment.Split('.')
+    if ($compact.Length -gt 0) { $parts['k'] = [Uri]::UnescapeDataString($compact[0]) }
+    if ($compact.Length -gt 1) { $parts['b'] = [Uri]::UnescapeDataString($compact[1]) }
   }
   if (-not $parts.ContainsKey('k')) { throw 'Missing decryption key.' }
 

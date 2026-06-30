@@ -16,8 +16,8 @@ internal sealed record LongTextRelayResult(string Url, string PowerShellHelper);
 
 internal static class LongTextRelayService
 {
-    private const int TokenBytes = 24;
-    private const int KeyBytes = 32;
+    private const int TokenBytes = 16;
+    private const int KeyBytes = 16;
     private const int NonceBytes = 12;
     private const int SaltBytes = 16;
     private const int TagBytes = 16;
@@ -95,12 +95,7 @@ internal static class LongTextRelayService
                     : "Long Text Relay upload failed.");
             }
 
-            var keyFragment = $"k={Uri.EscapeDataString(Base64Url.Encode(masterKey))}&b={Uri.EscapeDataString(Base64Url.Encode(burnToken))}";
-            if (passwordProtected)
-            {
-                keyFragment += "&p=1";
-            }
-
+            var keyFragment = $"{Uri.EscapeDataString(Base64Url.Encode(masterKey))}.{Uri.EscapeDataString(Base64Url.Encode(burnToken))}";
             var relayUrl = $"{endpoint}/x/{token}#{keyFragment}";
             var helper = $"Open the link and press Copy full text. PowerShell cannot decrypt this with irm alone because the key is kept in the URL fragment and is never sent to Cloudflare.";
             return new LongTextRelayResult(relayUrl, helper);

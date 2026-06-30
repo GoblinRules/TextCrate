@@ -30,6 +30,12 @@ One-time URLs use:
 https://<obscure-subdomain>.ghostkernel.cc/x/<high-entropy-token>#k=<key>&b=<burn-token>
 ```
 
+Current app builds use a shorter compact fragment:
+
+```text
+https://<obscure-subdomain>.ghostkernel.cc/x/<high-entropy-token>#<key>.<burn-token>
+```
+
 The `/x/` path and token are non-enumerable. Avoid obvious subdomains or paths such as `paste`, `clip`, `clipboard`, `share`, or `relay`.
 
 The receiving page also shows an optional PowerShell command:
