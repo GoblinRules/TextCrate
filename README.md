@@ -132,18 +132,6 @@ npm install
 npm test
 ```
 
-## Public Repo Safety
-
-This repository is intended to be safe to make public, with these caveats:
-
-- No Cloudflare API tokens, account tokens, passwords, private keys, or `.dev.vars` files should be committed.
-- `.dev.vars`, build output, `node_modules`, `artifacts`, `bin`, `obj`, and `temp` are ignored.
-- The built-in relay endpoint `https://qz9v4k.ghostkernel.cc` is public by design because the desktop app needs to know where to upload encrypted relay payloads.
-- The Worker code and URL paths are public. Security should come from client-side encryption, high-entropy tokens, expiry, burn-after-read, and rate limiting, not from hiding code paths.
-- `cloudflare/long-text-relay/wrangler.toml` uses placeholder KV namespace IDs. Put real Cloudflare KV IDs into your local deployment config before deploying, but do not commit secrets.
-- Cloudflare KV namespace IDs are not API secrets, but they are internal resource identifiers, so placeholders are cleaner for a public repo.
-- Optional short links are less private because the backend stores the full decrypt link until expiry. Keep that setting off unless shorter URLs are worth the tradeoff.
-
 ## License
 
 TextCrate is licensed under the BSD 3-Clause License. See [LICENSE](LICENSE).
